@@ -1213,9 +1213,6 @@ if choice == "📊 Dashboard":
                 for c_n_idx, r in selected.iterrows():
                     c_n = str(c_n_idx).replace('\u200B', '')
                     b_code = str(r['branch_code'])
-                    suffix = f" (-{b_code})"
-                    if c_name.endswith(suffix):
-                        c_name = c_name[:-len(suffix)]
                     selected_tuples.append((c_n, b_code))
                 
                 mask = df_raw.apply(lambda r: (f"{r['name_en']} (-{str(r['branch_code']).strip()})", str(r['branch_code'])) in selected_tuples, axis=1)
