@@ -84,7 +84,6 @@ def get_base_date(row_dict):
     return None
 
 def calc_ar_deadline(base_dt, ar_ref_date_val, year):
-    # V197: Simplified AR calculation. Just base + 42 days.
     if ar_ref_date_val:
         base_for_calc = get_anniv(year, ar_ref_date_val.month, ar_ref_date_val.day)
     else:
@@ -96,8 +95,8 @@ active_years = list(range(2025, current_system_year + 2))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V197.1", layout="wide")
-choice = st.sidebar.radio("Navigation (V197.1版)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V198", layout="wide")
+choice = st.sidebar.radio("Navigation (V198版)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -189,14 +188,14 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
         dynamic_hk_rows = ""
         dynamic_annual_rows = ""
         
-        # V197: Add BR Ref and AR Ref if they exist
         br_ref_raw = to_date(row.get('br_ref_date'))
         ar_ref_raw = to_date(row.get('ar_ref_date'))
         
+        # V198: Remove colorful highlights for custom ref dates
         if br_ref_raw and (not base_date or (br_ref_raw.month != base_date.month or br_ref_raw.day != base_date.day)):
-            dynamic_place_rows += f"<tr><th style='color: #e67e22;'>BR Ref. Date (MM/DD)</th><td style='color: #e67e22;'>{br_ref_raw.strftime('%m/%d')}</td></tr>"
+            dynamic_place_rows += f"<tr><th>BR Ref. Date (MM/DD)</th><td>{br_ref_raw.strftime('%m/%d')}</td></tr>"
         if ar_ref_raw and (not base_date or (ar_ref_raw.month != base_date.month or ar_ref_raw.day != base_date.day)):
-            dynamic_place_rows += f"<tr><th style='color: #2980b9;'>AR Ref. Date (MM/DD)</th><td style='color: #2980b9;'>{ar_ref_raw.strftime('%m/%d')}</td></tr>"
+            dynamic_place_rows += f"<tr><th>AR Ref. Date (MM/DD)</th><td>{ar_ref_raw.strftime('%m/%d')}</td></tr>"
             
         br_no_raw = str(row.get('br_no', '')).strip()
         if has_branch and br_no_raw:
@@ -1107,9 +1106,9 @@ if choice == "📊 Dashboard":
             if t2.button("🔄 Refresh"): st.rerun()
             df_filtered = df_raw if filter_g == "All Groups" else df_raw[df_raw['client_group'] == filter_g]
             
-            if 'sel_v197' not in st.session_state: st.session_state.sel_v197 = False
-            if t3.button("✅ Select All"): st.session_state.sel_v197 = True; st.rerun()
-            if t4.button("🧹 Clear All"): st.session_state.sel_v197 = False; st.rerun()
+            if 'sel_v198' not in st.session_state: st.session_state.sel_v198 = False
+            if t3.button("✅ Select All"): st.session_state.sel_v198 = True; st.rerun()
+            if t4.button("🧹 Clear All"): st.session_state.sel_v198 = False; st.rerun()
             
             display_cols_ordered = [
                 "name_ch", "biz_name", "client_group", "incorp_place", "incorp_place_others", 
@@ -1131,146 +1130,148 @@ if choice == "📊 Dashboard":
             display_cols_ordered.append("branch_code")
             
             df_display = df_filtered[["name_en"] + [c for c in display_cols_ordered if c in df_filtered.columns]].copy()
-            df_display['remark'] = df_display['remark'].fillna('')
             
-            # V197: Only add suffix if it's a branch of a company that actually has branches
-            def format_name(r):
-                if str(r['branch_code']).strip() != '000' and r['name_en'] in companies_with_branches:
-                    return f"{r['name_en']} (-{str(r['branch_code']).strip()})"
-                return r['name_en']
-            
-            df_display['name_en'] = df_display.apply(format_name, axis=1)
-            
-            df_display.rename(columns={
-                "name_en": "Company Name EN",
-                "name_ch": "Company Name CH",
-                "biz_name": "Business Name",
-                "client_group": "Client Group",
-                "disp_br_no": "BR No.",
-                "incorp_place": "Incorp Place"
-            }, inplace=True)
-            
-            df_display.insert(0, "Select", st.session_state.sel_v197)
-            
-            s = df_display["Company Name EN"].astype(str)
-            df_display.index = s + s.groupby(s).cumcount().map(lambda x: '\u200B' * x)
-            df_display.index.name = "Company Name EN"
-            df_display.drop(columns=["Company Name EN"], inplace=True)
-            
-            st.markdown(f"📈 Total: **{len(df_filtered)}** records in current view.")
-            
-            col_cfg = {
-                "Select": st.column_config.CheckboxColumn("Select", default=False),
-                "branch_code": None, 
-                "remark": st.column_config.TextColumn("✏️ Remark")
-            }
-            cr_opts = ["Pending", "Processing", "Returned", "Completed"]
-            for y in active_years:
-                col_cfg[f"{y}_br_paid_by"] = st.column_config.SelectboxColumn(f"✏️ {y} BR Paid By", options=["Firm", "Client", "N/A"], required=True)
-                col_cfg[f"{y}_br_date"] = st.column_config.DateColumn(f"✏️ {y} BR Date", format="YYYY/MM/DD")
-                col_cfg[f"{y}_ar_date"] = st.column_config.DateColumn(f"✏️ {y} AR Date", format="YYYY/MM/DD")
-                col_cfg[f"{y}_ar_cr_status"] = st.column_config.SelectboxColumn(f"✏️ {y} AR CR Status", options=cr_opts, required=True)
-            
-            disabled_cols = [c for c in df_display.columns if c not in ["Select", "remark"] and not any(c.endswith(suffix) for suffix in ["_br_paid_by", "_br_date", "_ar_date", "_ar_cr_status"])]
-            
-            edit_df = st.data_editor(
-                df_display, 
-                column_config=col_cfg,
-                disabled=disabled_cols,
-                use_container_width=True,
-                key="dash_v197"
-            )
-            
-            if st.button("💾 Save Batch Edits", key="btn_save_grid_v197"):
-                try:
-                    with engine.begin() as conn:
-                        for c_name_idx, r in edit_df.iterrows():
-                            c_name = str(c_name_idx).replace('\u200B', '')
-                            b_code = str(r['branch_code'])
-                            
-                            row_info = df_raw[(df_raw['name_en'] == c_name) & (df_raw['branch_code'] == b_code)].iloc[0]
-                            
-                            comp_name_safe = str(row_info['name_en']).replace("'", "''")
-                            branch_safe = str(row_info['branch_code']).replace("'", "''")
-                            
-                            base_dt = get_base_date(row_info)
-                            inc_yr = base_dt.year if base_dt else None
-                            
-                            comp_dict = {}
-                            for y in active_years:
-                                y_str = str(y)
-                                br_by = str(r.get(f'{y}_br_paid_by', 'Firm'))
-                                ar_cr_status = str(r.get(f'{y}_ar_cr_status', 'Pending'))
+            # V198: Fix Empty DataFrame Error
+            if not df_display.empty:
+                df_display['remark'] = df_display['remark'].fillna('')
+                
+                def format_name(r):
+                    if str(r['branch_code']).strip() != '000' and r['name_en'] in companies_with_branches:
+                        return f"{r['name_en']} (-{str(r['branch_code']).strip()})"
+                    return r['name_en']
+                
+                df_display['name_en'] = df_display.apply(format_name, axis=1)
+                
+                df_display.rename(columns={
+                    "name_en": "Company Name EN",
+                    "name_ch": "Company Name CH",
+                    "biz_name": "Business Name",
+                    "client_group": "Client Group",
+                    "disp_br_no": "BR No.",
+                    "incorp_place": "Incorp Place"
+                }, inplace=True)
+                
+                df_display.insert(0, "Select", st.session_state.sel_v198)
+                
+                s = df_display["Company Name EN"].astype(str)
+                df_display.index = s + s.groupby(s).cumcount().map(lambda x: '\u200B' * x)
+                df_display.index.name = "Company Name EN"
+                df_display.drop(columns=["Company Name EN"], inplace=True)
+                
+                st.markdown(f"📈 Total: **{len(df_filtered)}** records in current view.")
+                
+                col_cfg = {
+                    "Select": st.column_config.CheckboxColumn("Select", default=False),
+                    "branch_code": None, 
+                    "remark": st.column_config.TextColumn("✏️ Remark")
+                }
+                cr_opts = ["Pending", "Processing", "Returned", "Completed"]
+                for y in active_years:
+                    col_cfg[f"{y}_br_paid_by"] = st.column_config.SelectboxColumn(f"✏️ {y} BR Paid By", options=["Firm", "Client", "N/A"], required=True)
+                    col_cfg[f"{y}_br_date"] = st.column_config.DateColumn(f"✏️ {y} BR Date", format="YYYY/MM/DD")
+                    col_cfg[f"{y}_ar_date"] = st.column_config.DateColumn(f"✏️ {y} AR Date", format="YYYY/MM/DD")
+                    col_cfg[f"{y}_ar_cr_status"] = st.column_config.SelectboxColumn(f"✏️ {y} AR CR Status", options=cr_opts, required=True)
+                
+                disabled_cols = [c for c in df_display.columns if c not in ["Select", "remark"] and not any(c.endswith(suffix) for suffix in ["_br_paid_by", "_br_date", "_ar_date", "_ar_cr_status"])]
+                
+                edit_df = st.data_editor(
+                    df_display, 
+                    column_config=col_cfg,
+                    disabled=disabled_cols,
+                    use_container_width=True,
+                    key="dash_v198"
+                )
+                
+                if st.button("💾 Save Batch Edits", key="btn_save_grid_v198"):
+                    try:
+                        with engine.begin() as conn:
+                            for c_name_idx, r in edit_df.iterrows():
+                                c_n = str(c_name_idx).replace('\u200B', '')
+                                b_code = str(r['branch_code'])
+                                suffix = f" (-{b_code})"
+                                if c_n.endswith(suffix):
+                                    c_n = c_n[:-len(suffix)]
                                 
-                                raw_br = to_date(r.get(f'{y}_br_date'))
-                                raw_ar = to_date(r.get(f'{y}_ar_date'))
+                                row_info = df_raw[(df_raw['name_en'] == c_n) & (df_raw['branch_code'] == b_code)].iloc[0]
                                 
-                                if inc_yr and y < inc_yr:
-                                    br_by = 'N/A'
-                                    raw_br = None
-                                    raw_ar = None
-                                elif inc_yr and y == inc_yr:
-                                    raw_ar = None
+                                comp_name_safe = str(row_info['name_en']).replace("'", "''")
+                                branch_safe = str(row_info['branch_code']).replace("'", "''")
+                                
+                                base_dt = get_base_date(row_info)
+                                inc_yr = base_dt.year if base_dt else None
+                                
+                                comp_dict = {}
+                                for y in active_years:
+                                    y_str = str(y)
+                                    br_by = str(r.get(f'{y}_br_paid_by', 'Firm'))
+                                    ar_cr_status = str(r.get(f'{y}_ar_cr_status', 'Pending'))
                                     
-                                if br_by == 'N/A': raw_br = None
+                                    raw_br = to_date(r.get(f'{y}_br_date'))
+                                    raw_ar = to_date(r.get(f'{y}_ar_date'))
+                                    
+                                    if inc_yr and y < inc_yr:
+                                        br_by = 'N/A'
+                                        raw_br = None
+                                        raw_ar = None
+                                    elif inc_yr and y == inc_yr:
+                                        raw_ar = None
+                                        
+                                    if br_by == 'N/A': raw_br = None
+                                    
+                                    comp_dict[y_str] = {
+                                        "br_paid_by": br_by,
+                                        "br_date": raw_br.strftime('%Y-%m-%d') if raw_br else None,
+                                        "ar_date": raw_ar.strftime('%Y-%m-%d') if raw_ar else None,
+                                        "ar_cr_status": ar_cr_status
+                                    }
+                                json_str = json.dumps(comp_dict).replace("'", "''")
+                                rem_str = str(r.get('remark', '')).replace("'", "''")
+                                if rem_str == 'None': rem_str = ""
                                 
-                                comp_dict[y_str] = {
-                                    "br_paid_by": br_by,
-                                    "br_date": raw_br.strftime('%Y-%m-%d') if raw_br else None,
-                                    "ar_date": raw_ar.strftime('%Y-%m-%d') if raw_ar else None,
-                                    "ar_cr_status": ar_cr_status
-                                }
-                            json_str = json.dumps(comp_dict).replace("'", "''")
-                            rem_str = str(r.get('remark', '')).replace("'", "''")
-                            if rem_str == 'None': rem_str = ""
-                            
-                            sql = f"UPDATE companies SET compliance_records = '{json_str}', remark = '{rem_str}' WHERE name_en = '{comp_name_safe}' AND branch_code = '{branch_safe}'"
-                            conn.execute(text(sql))
-                    st.success("✅ Changes saved successfully!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Batch save failed: {e}")
-            
-            selected = edit_df[edit_df["Select"] == True]
-            if len(selected) > 0:
-                st.info(f"✅ **{len(selected)}** records selected for action.")
-                c_act1, c_act2, c_act3, c_act4 = st.columns([2.5, 2.5, 2.5, 2.5])
+                                sql = f"UPDATE companies SET compliance_records = '{json_str}', remark = '{rem_str}' WHERE name_en = '{comp_name_safe}' AND branch_code = '{branch_safe}'"
+                                conn.execute(text(sql))
+                        st.success("✅ Changes saved successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Batch save failed: {e}")
                 
-                selected_tuples = []
-                for c_n_idx, r in selected.iterrows():
-                    c_n = str(c_n_idx).replace('\u200B', '')
-                    b_code = str(r['branch_code'])
-                    suffix = f" (-{b_code})"
-                    if c_n.endswith(suffix):
-                        c_n = c_n[:-len(suffix)]
-                    selected_tuples.append((c_n, b_code))
-                
-                def match_selected(r):
-                    name = str(r['name_en']).strip()
-                    bcode = str(r['branch_code']).strip()
-                    if bcode != '000' and name in companies_with_branches:
-                        disp = f"{name} (-{bcode})"
-                    else: disp = name
+                selected = edit_df[edit_df["Select"] == True]
+                if len(selected) > 0:
+                    st.info(f"✅ **{len(selected)}** records selected for action.")
+                    c_act1, c_act2, c_act3, c_act4 = st.columns([2.5, 2.5, 2.5, 2.5])
                     
-                    # Fix V197.1: We compare base name, not disp name since c_n is stripped
-                    return (name, bcode) in selected_tuples
+                    selected_tuples = []
+                    for c_n_idx, r in selected.iterrows():
+                        c_n = str(c_n_idx).replace('\u200B', '')
+                        b_code = str(r['branch_code'])
+                        suffix = f" (-{b_code})"
+                        if c_n.endswith(suffix):
+                            c_n = c_n[:-len(suffix)]
+                        selected_tuples.append((c_n, b_code))
                     
-                mask = df_raw.apply(match_selected, axis=1)
-                final_data = df_raw[mask]
-                
-                with c_act1.popover("🏢 Internal Export (All-in-One)"):
-                    st.download_button(label="📥 PDF (Combined)", data=generate_custom_pdf(final_data), file_name="Company_Report_Internal.pdf", mime="application/pdf", key="pdf_in_1")
-                    st.download_button(label="📦 Excel (Combined)", data=generate_general_excel(final_data), file_name="Company_Data_Internal.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_in_1")
-                with c_act2.popover("🤝 Client Export (ZIP by Group)"):
-                    st.download_button("🗂️ ZIP (PDFs by Group)", data=create_zip_pdfs(final_data, "All"), file_name="Company_Reports_ZIP.zip", mime="application/zip", key="zip_pdf_1")
-                    st.download_button("🗂️ ZIP (Excels by Group)", data=create_zip_excels(final_data, "All"), file_name="Company_Data_ZIP.zip", mime="application/zip", key="zip_exc_1")
-                with c_act3.popover("📄 External Export (No Group)"):
-                    st.download_button("📥 PDF (No Group)", data=generate_custom_pdf(final_data, hide_client_group=True), file_name="Company_Report_External.pdf", mime="application/pdf", key="pdf_ex_1")
-                    st.download_button("📦 Excel (No Group)", data=generate_general_excel(final_data, hide_client_group=True), file_name="Company_Data_External.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_ex_1")
-                with c_act4.popover("🧨 BATCH DELETE"):
-                    st.error("🛑 DANGER ZONE"); conf_b = st.text_input("Type DELETE", key="batch_del_v197")
-                    if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v197"):
-                        df_raw[~mask].to_sql('companies', engine, if_exists='replace', index=False); st.rerun()
+                    def match_selected(r):
+                        name = str(r['name_en']).strip()
+                        bcode = str(r['branch_code']).strip()
+                        return (name, bcode) in selected_tuples
+                        
+                    mask = df_raw.apply(match_selected, axis=1)
+                    final_data = df_raw[mask]
+                    
+                    with c_act1.popover("🏢 Internal Export (All-in-One)"):
+                        st.download_button(label="📥 PDF (Combined)", data=generate_custom_pdf(final_data), file_name="Company_Report_Internal.pdf", mime="application/pdf", key="pdf_in_1")
+                        st.download_button(label="📦 Excel (Combined)", data=generate_general_excel(final_data), file_name="Company_Data_Internal.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_in_1")
+                    with c_act2.popover("🤝 Client Export (ZIP by Group)"):
+                        st.download_button("🗂️ ZIP (PDFs by Group)", data=create_zip_pdfs(final_data, "All"), file_name="Company_Reports_ZIP.zip", mime="application/zip", key="zip_pdf_1")
+                        st.download_button("🗂️ ZIP (Excels by Group)", data=create_zip_excels(final_data, "All"), file_name="Company_Data_ZIP.zip", mime="application/zip", key="zip_exc_1")
+                    with c_act3.popover("📄 External Export (No Group)"):
+                        st.download_button("📥 PDF (No Group)", data=generate_custom_pdf(final_data, hide_client_group=True), file_name="Company_Report_External.pdf", mime="application/pdf", key="pdf_ex_1")
+                        st.download_button("📦 Excel (No Group)", data=generate_general_excel(final_data, hide_client_group=True), file_name="Company_Data_External.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_ex_1")
+                    with c_act4.popover("🧨 BATCH DELETE"):
+                        st.error("🛑 DANGER ZONE"); conf_b = st.text_input("Type DELETE", key="batch_del_v198")
+                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v198"):
+                            df_raw[~mask].to_sql('companies', engine, if_exists='replace', index=False); st.rerun()
+            else:
+                st.info("No records match the current filter.")
 
         with tab2:
             df_alerts = pd.DataFrame(outstanding_records)
@@ -1283,67 +1284,71 @@ if choice == "📊 Dashboard":
                 
                 df_alerts_filtered = df_alerts if filter_alert_g == "All Groups" else df_alerts[df_alerts['Client Group'] == filter_alert_g]
                 
-                if 'sel_alert_v197' not in st.session_state: st.session_state.sel_alert_v197 = False
-                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v197 = True; st.rerun()
-                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v197 = False; st.rerun()
+                if 'sel_alert_v198' not in st.session_state: st.session_state.sel_alert_v198 = False
+                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v198 = True; st.rerun()
+                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v198 = False; st.rerun()
                 
                 alert_cols_order = ["Company Name EN", "Company Name CH", "Business Name", "Client Group", "Incorp Place", "Year", "BR No.", "BR Paid By", "BR Status", "BR Deadline", "AR Status", "AR Deadline", "Remark", "branch_code_raw"]
                 df_alerts_display = df_alerts_filtered[alert_cols_order].copy()
                 
-                df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v197)
-                
-                s2 = df_alerts_display["Company Name EN"].astype(str)
-                df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '\u200B' * x)
-                df_alerts_display.index.name = "Company Name EN"
-                df_alerts_display.drop(columns=["Company Name EN"], inplace=True)
-                
-                st.markdown(f"📈 Total: **{len(df_alerts_display)}** tasks in current view.")
-                
-                alert_edit = st.data_editor(
-                    df_alerts_display,
-                    column_config={
-                        "Select": st.column_config.CheckboxColumn("Select", default=False),
-                        "branch_code_raw": None
-                    }, 
-                    use_container_width=True,
-                    disabled=[c for c in df_alerts_display.columns if c != "Select"],
-                    key="alert_grid_v197"
-                )
-                
-                selected_alerts = df_alerts_display[alert_edit["Select"] == True]
-                sel_alert_tuples = []
-                for c_n_idx, r in selected_alerts.iterrows():
-                    c_n = str(c_n_idx).replace('\u200B', '')
-                    sel_alert_tuples.append((c_n, r['branch_code_raw']))
+                # V198: Fix Empty DataFrame Error
+                if not df_alerts_display.empty:
+                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v198)
                     
-                def match_alert_selected(r):
-                    name = str(r['Company Name EN']).strip()
-                    bcode = str(r['branch_code_raw']).strip()
-                    suffix = f" (-{bcode})"
-                    if name.endswith(suffix):
-                        name = name[:-len(suffix)]
-                    return (name, bcode) in sel_alert_tuples
+                    s2 = df_alerts_display["Company Name EN"].astype(str)
+                    df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '\u200B' * x)
+                    df_alerts_display.index.name = "Company Name EN"
+                    df_alerts_display.drop(columns=["Company Name EN"], inplace=True)
                     
-                export_target = df_alerts[df_alerts.apply(match_alert_selected, axis=1)]
-                
-                if len(export_target) > 0:
-                    export_target = export_target.drop(columns=['branch_code_raw'])
-                else: export_target = None
-                
-                if export_target is not None:
-                    st.info(f"✅ **{len(export_target)}** tasks selected for export.")
-                    ca1, ca2, ca3 = st.columns([3, 3, 4])
-                    with ca1.popover("🏢 Internal Export (All-in-One)"):
-                        st.download_button("📥 PDF (Combined)", data=generate_outstanding_pdf(export_target), file_name="Outstanding_Internal.pdf", mime="application/pdf", key="pdf_in_2")
-                        st.download_button("📦 Excel (Combined)", data=generate_beautiful_excel(export_target), file_name="Outstanding_Internal.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_in_2")
-                    with ca2.popover("🤝 Client Export (ZIP by Group)"):
-                        st.download_button("🗂️ ZIP (PDFs by Group)", data=create_zip_pdfs(export_target, "Outstanding"), file_name="Outstanding_ZIP.zip", mime="application/zip", key="zip_pdf_2")
-                        st.download_button("🗂️ ZIP (Excels by Group)", data=create_zip_excels(export_target, "Outstanding"), file_name="Outstanding_ZIP.zip", mime="application/zip", key="zip_exc_2")
-                    with ca3.popover("📄 External Export (No Group)"):
-                        st.download_button("📥 PDF (No Group)", data=generate_outstanding_pdf(export_target, hide_client_group=True), file_name="Outstanding_External.pdf", mime="application/pdf", key="pdf_ex_2")
-                        st.download_button("📦 Excel (No Group)", data=generate_beautiful_excel(export_target, hide_client_group=True), file_name="Outstanding_External.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_ex_2")
+                    st.markdown(f"📈 Total: **{len(df_alerts_display)}** tasks in current view.")
+                    
+                    alert_edit = st.data_editor(
+                        df_alerts_display,
+                        column_config={
+                            "Select": st.column_config.CheckboxColumn("Select", default=False),
+                            "branch_code_raw": None
+                        }, 
+                        use_container_width=True,
+                        disabled=[c for c in df_alerts_display.columns if c != "Select"],
+                        key="alert_grid_v198"
+                    )
+                    
+                    selected_alerts = df_alerts_display[alert_edit["Select"] == True]
+                    sel_alert_tuples = []
+                    for c_n_idx, r in selected_alerts.iterrows():
+                        c_n = str(c_n_idx).replace('\u200B', '')
+                        sel_alert_tuples.append((c_n, r['branch_code_raw']))
+                        
+                    def match_alert_selected(r):
+                        name = str(r['Company Name EN']).strip()
+                        bcode = str(r['branch_code_raw']).strip()
+                        suffix = f" (-{bcode})"
+                        if name.endswith(suffix):
+                            name = name[:-len(suffix)]
+                        return (name, bcode) in sel_alert_tuples
+                        
+                    export_target = df_alerts[df_alerts.apply(match_alert_selected, axis=1)]
+                    
+                    if len(export_target) > 0:
+                        export_target = export_target.drop(columns=['branch_code_raw'])
+                    else: export_target = None
+                    
+                    if export_target is not None:
+                        st.info(f"✅ **{len(export_target)}** tasks selected for export.")
+                        ca1, ca2, ca3 = st.columns([3, 3, 4])
+                        with ca1.popover("🏢 Internal Export (All-in-One)"):
+                            st.download_button("📥 PDF (Combined)", data=generate_outstanding_pdf(export_target), file_name="Outstanding_Internal.pdf", mime="application/pdf", key="pdf_in_2")
+                            st.download_button("📦 Excel (Combined)", data=generate_beautiful_excel(export_target), file_name="Outstanding_Internal.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_in_2")
+                        with ca2.popover("🤝 Client Export (ZIP by Group)"):
+                            st.download_button("🗂️ ZIP (PDFs by Group)", data=create_zip_pdfs(export_target, "Outstanding"), file_name="Outstanding_ZIP.zip", mime="application/zip", key="zip_pdf_2")
+                            st.download_button("🗂️ ZIP (Excels by Group)", data=create_zip_excels(export_target, "Outstanding"), file_name="Outstanding_ZIP.zip", mime="application/zip", key="zip_exc_2")
+                        with ca3.popover("📄 External Export (No Group)"):
+                            st.download_button("📥 PDF (No Group)", data=generate_outstanding_pdf(export_target, hide_client_group=True), file_name="Outstanding_External.pdf", mime="application/pdf", key="pdf_ex_2")
+                            st.download_button("📦 Excel (No Group)", data=generate_beautiful_excel(export_target, hide_client_group=True), file_name="Outstanding_External.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_ex_2")
+                    else:
+                        st.info("💡 Select checkboxes to export specific companies.")
                 else:
-                    st.info("💡 Select checkboxes to export specific companies.")
+                    st.info("No outstanding tasks for this Group.")
             else:
                 st.success("🎉 No outstanding tasks at the moment!")
                 
@@ -1359,9 +1364,9 @@ if choice == "📊 Dashboard":
             
             if ti5.button("🔄 Refresh", key="ref_inv"): st.rerun()
             
-            if 'sel_inv_v197' not in st.session_state: st.session_state.sel_inv_v197 = False
-            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v197 = True; st.rerun()
-            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v197 = False; st.rerun()
+            if 'sel_inv_v198' not in st.session_state: st.session_state.sel_inv_v198 = False
+            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v198 = True; st.rerun()
+            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v198 = False; st.rerun()
             
             inv_records = []
             for row in raw_dict_list:
@@ -1376,7 +1381,6 @@ if choice == "📊 Dashboard":
                 
                 if target_year < incorp_year: continue
                 
-                # V197: Use BR Ref Date for month filtering if present, else fallback to incorp
                 br_ref_raw = to_date(row.get('br_ref_date'))
                 ar_ref_raw = to_date(row.get('ar_ref_date'))
                 
@@ -1433,7 +1437,6 @@ if choice == "📊 Dashboard":
                     
                 disp_name = f"{name} (-{branch_code})" if has_branch and is_branch else name
                 
-                # V197: Smart Anniversary display
                 if br_ref_raw and ar_ref_raw and (br_ref_raw.month != ar_ref_raw.month or br_ref_raw.day != ar_ref_raw.day):
                     anniv_disp = f"BR: {br_ref_raw.strftime('%m/%d')} | AR: {ar_ref_raw.strftime('%m/%d')}"
                 elif br_ref_raw and not ar_ref_raw and (br_ref_raw.month != base_date.month or br_ref_raw.day != base_date.day):
@@ -1467,60 +1470,64 @@ if choice == "📊 Dashboard":
                 inv_cols_order = ["Company Name EN", "Company Name CH", "Business Name", "Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "BR Paid By", "Billing Item", "BR Deadline", "AR Deadline", "Remark", "branch_code_raw"]
                 df_inv_display = df_inv[inv_cols_order].copy()
                 
-                df_inv_display.insert(0, "Select", st.session_state.sel_inv_v197)
-                
-                s3 = df_inv_display["Company Name EN"].astype(str)
-                df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '\u200B' * x)
-                df_inv_display.index.name = "Company Name EN"
-                df_inv_display.drop(columns=["Company Name EN"], inplace=True)
-                
-                st.markdown(f"📈 Total: **{len(df_inv_display)}** records for Invoicing in current view.")
-                
-                inv_edit = st.data_editor(
-                    df_inv_display,
-                    column_config={
-                        "Select": st.column_config.CheckboxColumn("Select", default=False),
-                        "branch_code_raw": None
-                    }, 
-                    use_container_width=True,
-                    disabled=[c for c in df_inv_display.columns if c != "Select"],
-                    key="inv_grid_v197"
-                )
-                
-                selected_inv = df_inv_display[inv_edit["Select"] == True]
-                sel_inv_tuples = []
-                for c_n_idx, r in selected_inv.iterrows():
-                    c_n = str(c_n_idx).replace('\u200B', '')
-                    sel_inv_tuples.append((c_n, r['branch_code_raw']))
+                # V198: Fix Empty DataFrame Error
+                if not df_inv_display.empty:
+                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v198)
                     
-                def match_inv_selected(r):
-                    name = str(r['Company Name EN']).strip()
-                    bcode = str(r['branch_code_raw']).strip()
-                    suffix = f" (-{bcode})"
-                    if name.endswith(suffix):
-                        name = name[:-len(suffix)]
-                    return (name, bcode) in sel_inv_tuples
+                    s3 = df_inv_display["Company Name EN"].astype(str)
+                    df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '\u200B' * x)
+                    df_inv_display.index.name = "Company Name EN"
+                    df_inv_display.drop(columns=["Company Name EN"], inplace=True)
                     
-                export_target_inv = df_inv[df_inv.apply(match_inv_selected, axis=1)]
-                
-                if len(export_target_inv) > 0:
-                    export_target_inv = export_target_inv.drop(columns=['branch_code_raw'])
-                else: export_target_inv = None
-                
-                if export_target_inv is not None:
-                    st.info(f"✅ **{len(export_target_inv)}** records selected for export.")
-                    ci1, ci2, ci3 = st.columns([3, 3, 4])
-                    with ci1.popover("🏢 Internal Export (All-in-One)"):
-                        st.download_button("📥 PDF (Combined)", data=generate_inv_pdf(export_target_inv, str(target_year), month_str), file_name=f"Invoicing_Internal_{target_year}_{month_str}.pdf", mime="application/pdf", key="pdf_in_3")
-                        st.download_button("📦 Excel (Combined)", data=generate_inv_excel(export_target_inv, str(target_year), month_str), file_name=f"Invoicing_Internal_{target_year}_{month_str}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_in_3")
-                    with ci2.popover("🤝 Client Export (ZIP by Group)"):
-                        st.download_button("🗂️ ZIP (PDFs by Group)", data=create_zip_pdfs(export_target_inv, "Invoicing", str(target_year), month_str), file_name=f"Invoicing_ZIP_{target_year}_{month_str}.zip", mime="application/zip", key="zip_pdf_3")
-                        st.download_button("🗂️ ZIP (Excels by Group)", data=create_zip_excels(export_target_inv, "Invoicing", str(target_year), month_str), file_name=f"Invoicing_ZIP_{target_year}_{month_str}.zip", mime="application/zip", key="zip_exc_3")
-                    with ci3.popover("📄 External Export (No Group)"):
-                        st.download_button("📥 PDF (No Group)", data=generate_inv_pdf(export_target_inv, str(target_year), month_str, hide_client_group=True), file_name=f"Invoicing_External_{target_year}_{month_str}.pdf", mime="application/pdf", key="pdf_ex_3")
-                        st.download_button("📦 Excel (No Group)", data=generate_inv_excel(export_target_inv, str(target_year), month_str, hide_client_group=True), file_name=f"Invoicing_External_{target_year}_{month_str}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_ex_3")
+                    st.markdown(f"📈 Total: **{len(df_inv_display)}** records for Invoicing in current view.")
+                    
+                    inv_edit = st.data_editor(
+                        df_inv_display,
+                        column_config={
+                            "Select": st.column_config.CheckboxColumn("Select", default=False),
+                            "branch_code_raw": None
+                        }, 
+                        use_container_width=True,
+                        disabled=[c for c in df_inv_display.columns if c != "Select"],
+                        key="inv_grid_v198"
+                    )
+                    
+                    selected_inv = df_inv_display[inv_edit["Select"] == True]
+                    sel_inv_tuples = []
+                    for c_n_idx, r in selected_inv.iterrows():
+                        c_n = str(c_n_idx).replace('\u200B', '')
+                        sel_inv_tuples.append((c_n, r['branch_code_raw']))
+                        
+                    def match_inv_selected(r):
+                        name = str(r['Company Name EN']).strip()
+                        bcode = str(r['branch_code_raw']).strip()
+                        suffix = f" (-{bcode})"
+                        if name.endswith(suffix):
+                            name = name[:-len(suffix)]
+                        return (name, bcode) in sel_inv_tuples
+                        
+                    export_target_inv = df_inv[df_inv.apply(match_inv_selected, axis=1)]
+                    
+                    if len(export_target_inv) > 0:
+                        export_target_inv = export_target_inv.drop(columns=['branch_code_raw'])
+                    else: export_target_inv = None
+                    
+                    if export_target_inv is not None:
+                        st.info(f"✅ **{len(export_target_inv)}** records selected for export.")
+                        ci1, ci2, ci3 = st.columns([3, 3, 4])
+                        with ci1.popover("🏢 Internal Export (All-in-One)"):
+                            st.download_button("📥 PDF (Combined)", data=generate_inv_pdf(export_target_inv, str(target_year), month_str), file_name=f"Invoicing_Internal_{target_year}_{month_str}.pdf", mime="application/pdf", key="pdf_in_3")
+                            st.download_button("📦 Excel (Combined)", data=generate_inv_excel(export_target_inv, str(target_year), month_str), file_name=f"Invoicing_Internal_{target_year}_{month_str}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_in_3")
+                        with ci2.popover("🤝 Client Export (ZIP by Group)"):
+                            st.download_button("🗂️ ZIP (PDFs by Group)", data=create_zip_pdfs(export_target_inv, "Invoicing", str(target_year), month_str), file_name=f"Invoicing_ZIP_{target_year}_{month_str}.zip", mime="application/zip", key="zip_pdf_3")
+                            st.download_button("🗂️ ZIP (Excels by Group)", data=create_zip_excels(export_target_inv, "Invoicing", str(target_year), month_str), file_name=f"Invoicing_ZIP_{target_year}_{month_str}.zip", mime="application/zip", key="zip_exc_3")
+                        with ci3.popover("📄 External Export (No Group)"):
+                            st.download_button("📥 PDF (No Group)", data=generate_inv_pdf(export_target_inv, str(target_year), month_str, hide_client_group=True), file_name=f"Invoicing_External_{target_year}_{month_str}.pdf", mime="application/pdf", key="pdf_ex_3")
+                            st.download_button("📦 Excel (No Group)", data=generate_inv_excel(export_target_inv, str(target_year), month_str, hide_client_group=True), file_name=f"Invoicing_External_{target_year}_{month_str}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="exc_ex_3")
+                    else:
+                        st.info("💡 Select checkboxes to export specific companies.")
                 else:
-                    st.info("💡 Select checkboxes to export specific companies.")
+                    st.info("No records match the current filter.")
             else:
                 st.success("🎉 No companies found for this invoicing period.")
                 
@@ -1751,34 +1758,34 @@ elif choice == "🏢 Company Register":
         st.write("---"); st.header("📝 Compliance Filings (Local Company)")
         st.subheader("📑 Company Secretary Appointment (ND2A)")
         cc1, cc2, cc3, cc4 = st.columns([3, 3, 3, 1])
-        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v197", format="YYYY/MM/DD")
-        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v197", format="YYYY/MM/DD")
+        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v198", format="YYYY/MM/DD")
+        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v198", format="YYYY/MM/DD")
         with cc3:
             st.info("Statutory Period: 15 days")
             if n2e: n2_deadline = (n2e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n2_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v197")
+        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v198")
         
         st.subheader("📑 Company Secretary Resignation (ND4)")
         cc5, cc6, cc7, cc8 = st.columns([3, 3, 3, 1])
-        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v197", format="YYYY/MM/DD")
-        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v197", format="YYYY/MM/DD")
+        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v198", format="YYYY/MM/DD")
+        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v198", format="YYYY/MM/DD")
         with cc7:
             st.info("Statutory Period: 15 days")
             if n4e: n4_deadline = (n4e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n4_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v197")
+        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v198")
         
     elif is_hk_reg:
         st.write("---"); st.header("📝 Compliance Filings (Non-HK Company)")
         st.subheader("📑 Secretary & Director Changes (NN6)")
         c_nn1, c_nn2, c_nn3, c_nn4 = st.columns([3, 3, 3, 1])
-        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v197", format="YYYY/MM/DD")
-        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v197", format="YYYY/MM/DD")
+        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v198", format="YYYY/MM/DD")
+        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v198", format="YYYY/MM/DD")
         with c_nn3:
             st.info("Statutory Period: 1 Month")
             if nn6_e:
                 nn6_deadline = add_one_month(nn6_e)
                 st.markdown(f"**Deadline: :red[{nn6_deadline.strftime('%Y/%m/%d')}]**")
-        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v197")
+        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v198")
 
     st.write("---"); st.subheader("📍 Address & Contact")
     ca1, ca2 = st.columns(2)
@@ -1794,7 +1801,7 @@ elif choice == "🏢 Company Register":
     st.write("---"); st.subheader("📌 Remarks")
     remark_input = st.text_area("Remark / 備註", value=d['rem'], help="此備註會同步顯示於報告及總覽表格中。")
     
-    row_v197 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
+    row_v198 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
     
     if mode == "✏️ Edit Existing" and target_name:
         st.write("---")
@@ -1842,7 +1849,7 @@ elif choice == "🏢 Company Register":
                 if not clean_bcode or clean_bcode == '000':
                     st.error("❌ Please enter a valid branch code (e.g. 001)")
                 else:
-                    new_br_row = row_v197.copy()
+                    new_br_row = row_v198.copy()
                     new_br_row['branch_code'] = clean_bcode
                     new_br_row['biz_name'] = new_bbiz.strip()
                     new_br_row['br_ref_date'] = new_br_ref
@@ -1873,18 +1880,18 @@ elif choice == "🏢 Company Register":
 
     st.write("---")
     if mode in ["🆕 Add New", "📋 Copy Existing"]:
-        if st.button("💾 Save To Cloud", key="btn_save_v197"):
+        if st.button("💾 Save To Cloud", key="btn_save_v198"):
             if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
             else:
                 try:
-                    pd.DataFrame([row_v197]).to_sql('companies', engine, if_exists='append', index=False)
+                    pd.DataFrame([row_v198]).to_sql('companies', engine, if_exists='append', index=False)
                     st.success("✅ Success!"); st.rerun()
                 except Exception as save_err:
                     st.error(f"❌ Save Failed! Error details: {save_err}")
     else:
         u_col, d_col = st.columns(2)
         with u_col.popover("🆙 Update"):
-            if st.button("Confirm Update (總行及分行資料同步更新)", key="btn_update_v197"):
+            if st.button("Confirm Update (總行及分行資料同步更新)", key="btn_update_v198"):
                 if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
                 else:
                     try:
@@ -1893,10 +1900,10 @@ elif choice == "🏢 Company Register":
                         
                         df_all = df_all[df_all['name_en'] != target_name]
                         
-                        insert_list = [row_v197]
+                        insert_list = [row_v198]
                         for br in existing_branches:
                             b_code = str(br.get('branch_code')).strip()
-                            br_updated = row_v197.copy()
+                            br_updated = row_v198.copy()
                             br_updated['branch_code'] = b_code
                             br_updated['biz_name'] = updated_branch_biz.get(b_code, br.get('biz_name'))
                             br_updated['br_ref_date'] = br.get('br_ref_date')
@@ -1912,32 +1919,32 @@ elif choice == "🏢 Company Register":
                         df_backup.to_sql('companies', engine, if_exists='replace', index=False)
                         st.error(f"🛑 SQL Error Detected! Rollback completed. Details: {trans_err}")
         with d_col.popover("🚨 DELETE"):
-            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v197")
-            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v197"):
+            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v198")
+            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v198"):
                 df_all = df_all[df_all['name_en'] != target_name]
                 df_all.to_sql('companies', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 7. Group Management ---
 elif choice == "⚙️ Group Management":
     st.header("⚙️ Group Management")
-    new_g = st.text_input("New Group Name", key="new_group_input_v197")
-    if st.button("Add Group", key="btn_add_group_v197"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
+    new_g = st.text_input("New Group Name", key="new_group_input_v198")
+    if st.button("Add Group", key="btn_add_group_v198"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
     st.write("---")
     g_df = pd.read_sql("SELECT * FROM client_groups", engine)
     if not g_df.empty:
         g_df = g_df.sort_values(by=['group_name'], na_position='last')
-        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v197")
+        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v198")
         c1, c2 = st.columns(2)
         with c1.popover("✏️ Rename Group"):
-            ren = st.text_input("New Name:", key="rename_input_v197")
-            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v197")
-            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v197"):
+            ren = st.text_input("New Name:", key="rename_input_v198")
+            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v198")
+            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v198"):
                 comp_df = pd.read_sql("SELECT * FROM companies", engine)
                 comp_df.loc[comp_df['client_group'] == target, 'client_group'] = ren
                 comp_df.to_sql('companies', engine, if_exists='replace', index=False)
                 g_df.replace({target: ren}).to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
         with c2.popover("🗑️ Delete Group"):
-            if st.button("Confirm Delete Group", key="btn_group_delete_v197"): 
+            if st.button("Confirm Delete Group", key="btn_group_delete_v198"): 
                 g_df[g_df['group_name'] != target].to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 8. Data Exchange ---
@@ -2053,11 +2060,11 @@ elif choice == "📤 Data Exchange":
     
     buf_e = io.BytesIO()
     df_export.to_excel(buf_e, index=False)
-    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name="Backup.xlsx", key="btn_export_all_v197")
+    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name="Backup.xlsx", key="btn_export_all_v198")
     
     st.write("---")
     
-    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v197")
+    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v198")
     if up:
         try:
             up_df = pd.read_excel(up, engine='openpyxl', keep_default_na=False)
@@ -2206,7 +2213,7 @@ elif choice == "📤 Data Exchange":
                     if diff_list: st.table(pd.DataFrame(diff_list))
                     else: st.info("No changes detected in the file. Click Sync to proceed anyway.")
                     
-                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v197"):
+                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v198"):
                         new_comp_records = []
                         for idx, row_new in up_df.iterrows():
                             base_dt = get_base_date(row_new)
