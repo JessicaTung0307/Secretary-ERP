@@ -96,8 +96,8 @@ active_years = list(range(2025, current_system_year + 2))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V197", layout="wide")
-choice = st.sidebar.radio("Navigation (V197版)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V197.1", layout="wide")
+choice = st.sidebar.radio("Navigation (V197.1版)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -193,9 +193,9 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
         br_ref_raw = to_date(row.get('br_ref_date'))
         ar_ref_raw = to_date(row.get('ar_ref_date'))
         
-        if br_ref_raw:
+        if br_ref_raw and (not base_date or (br_ref_raw.month != base_date.month or br_ref_raw.day != base_date.day)):
             dynamic_place_rows += f"<tr><th style='color: #e67e22;'>BR Ref. Date (MM/DD)</th><td style='color: #e67e22;'>{br_ref_raw.strftime('%m/%d')}</td></tr>"
-        if ar_ref_raw:
+        if ar_ref_raw and (not base_date or (ar_ref_raw.month != base_date.month or ar_ref_raw.day != base_date.day)):
             dynamic_place_rows += f"<tr><th style='color: #2980b9;'>AR Ref. Date (MM/DD)</th><td style='color: #2980b9;'>{ar_ref_raw.strftime('%m/%d')}</td></tr>"
             
         br_no_raw = str(row.get('br_no', '')).strip()
@@ -1187,9 +1187,6 @@ if choice == "📊 Dashboard":
                         for c_name_idx, r in edit_df.iterrows():
                             c_name = str(c_name_idx).replace('\u200B', '')
                             b_code = str(r['branch_code'])
-                            suffix = f" (-{b_code})"
-                            if c_name.endswith(suffix):
-                                c_name = c_name[:-len(suffix)]
                             
                             row_info = df_raw[(df_raw['name_en'] == c_name) & (df_raw['branch_code'] == b_code)].iloc[0]
                             
@@ -1244,8 +1241,8 @@ if choice == "📊 Dashboard":
                     c_n = str(c_n_idx).replace('\u200B', '')
                     b_code = str(r['branch_code'])
                     suffix = f" (-{b_code})"
-                    if c_name.endswith(suffix):
-                        c_name = c_name[:-len(suffix)]
+                    if c_n.endswith(suffix):
+                        c_n = c_n[:-len(suffix)]
                     selected_tuples.append((c_n, b_code))
                 
                 def match_selected(r):
@@ -1254,7 +1251,9 @@ if choice == "📊 Dashboard":
                     if bcode != '000' and name in companies_with_branches:
                         disp = f"{name} (-{bcode})"
                     else: disp = name
-                    return (disp, bcode) in selected_tuples
+                    
+                    # Fix V197.1: We compare base name, not disp name since c_n is stripped
+                    return (name, bcode) in selected_tuples
                     
                 mask = df_raw.apply(match_selected, axis=1)
                 final_data = df_raw[mask]
@@ -1317,7 +1316,16 @@ if choice == "📊 Dashboard":
                     c_n = str(c_n_idx).replace('\u200B', '')
                     sel_alert_tuples.append((c_n, r['branch_code_raw']))
                     
-                export_target = df_alerts[df_alerts.apply(lambda r: (str(r['Company Name EN']).strip(), r['branch_code_raw']) in sel_alert_tuples, axis=1)]
+                def match_alert_selected(r):
+                    name = str(r['Company Name EN']).strip()
+                    bcode = str(r['branch_code_raw']).strip()
+                    suffix = f" (-{bcode})"
+                    if name.endswith(suffix):
+                        name = name[:-len(suffix)]
+                    return (name, bcode) in sel_alert_tuples
+                    
+                export_target = df_alerts[df_alerts.apply(match_alert_selected, axis=1)]
+                
                 if len(export_target) > 0:
                     export_target = export_target.drop(columns=['branch_code_raw'])
                 else: export_target = None
@@ -1485,7 +1493,16 @@ if choice == "📊 Dashboard":
                     c_n = str(c_n_idx).replace('\u200B', '')
                     sel_inv_tuples.append((c_n, r['branch_code_raw']))
                     
-                export_target_inv = df_inv[df_inv.apply(lambda r: (str(r['Company Name EN']).strip(), r['branch_code_raw']) in sel_inv_tuples, axis=1)]
+                def match_inv_selected(r):
+                    name = str(r['Company Name EN']).strip()
+                    bcode = str(r['branch_code_raw']).strip()
+                    suffix = f" (-{bcode})"
+                    if name.endswith(suffix):
+                        name = name[:-len(suffix)]
+                    return (name, bcode) in sel_inv_tuples
+                    
+                export_target_inv = df_inv[df_inv.apply(match_inv_selected, axis=1)]
+                
                 if len(export_target_inv) > 0:
                     export_target_inv = export_target_inv.drop(columns=['branch_code_raw'])
                 else: export_target_inv = None
