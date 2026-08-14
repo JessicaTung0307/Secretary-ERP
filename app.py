@@ -95,8 +95,8 @@ active_years = list(range(2025, current_system_year + 2))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V203", layout="wide")
-choice = st.sidebar.radio("Navigation (V203版)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V204", layout="wide")
+choice = st.sidebar.radio("Navigation (V204版)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -996,6 +996,7 @@ def generate_inv_pdf(df, year, month_disp, hide_client_group=False):
 # --- ZIP Export Logic ---
 @st.cache_data(show_spinner=False)
 def create_zip_pdfs(df, report_type="All", year=None, month_disp=None):
+    now_d = datetime.now(HKT).strftime('%Y%m%d')
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
         col_name = 'client_group' if 'client_group' in df.columns else 'Client Group'
@@ -1007,19 +1008,20 @@ def create_zip_pdfs(df, report_type="All", year=None, month_disp=None):
             
             if report_type == "All":
                 pdf_bytes = generate_custom_pdf(group_df, hide_client_group=True)
-                filename = f"{safe_g}_Company_Report.pdf"
+                filename = f"{safe_g}_Company_Report_{now_d}.pdf"
             elif report_type == "Outstanding":
                 pdf_bytes = generate_outstanding_pdf(group_df, hide_client_group=True)
-                filename = f"{safe_g}_Outstanding_Compliance.pdf"
+                filename = f"{safe_g}_Outstanding_Compliance_{now_d}.pdf"
             elif report_type == "Invoicing":
                 pdf_bytes = generate_inv_pdf(group_df, year, month_disp, hide_client_group=True)
-                filename = f"{safe_g}_Invoicing_Schedule_{year}_{month_disp}.pdf"
+                filename = f"{safe_g}_Invoicing_Schedule_{year}_{month_disp}_{now_d}.pdf"
             
             zip_file.writestr(filename, pdf_bytes)
     return zip_buffer.getvalue()
 
 @st.cache_data(show_spinner=False)
 def create_zip_excels(df, report_type="All", year=None, month_disp=None):
+    now_d = datetime.now(HKT).strftime('%Y%m%d')
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
         col_name = 'client_group' if 'client_group' in df.columns else 'Client Group'
@@ -1031,13 +1033,13 @@ def create_zip_excels(df, report_type="All", year=None, month_disp=None):
             
             if report_type == "All":
                 excel_bytes = generate_general_excel(group_df, hide_client_group=True)
-                filename = f"{safe_g}_Company_Data.xlsx"
+                filename = f"{safe_g}_Company_Report_{now_d}.xlsx"
             elif report_type == "Outstanding":
                 excel_bytes = generate_beautiful_excel(group_df, hide_client_group=True)
-                filename = f"{safe_g}_Outstanding_Compliance.xlsx"
+                filename = f"{safe_g}_Outstanding_Compliance_{now_d}.xlsx"
             elif report_type == "Invoicing":
                 excel_bytes = generate_inv_excel(group_df, year, month_disp, hide_client_group=True)
-                filename = f"{safe_g}_Invoicing_Schedule_{year}_{month_disp}.xlsx"
+                filename = f"{safe_g}_Invoicing_Schedule_{year}_{month_disp}_{now_d}.xlsx"
             
             zip_file.writestr(filename, excel_bytes)
     return zip_buffer.getvalue()
@@ -1223,9 +1225,9 @@ if choice == "📊 Dashboard":
             if t2.button("🔄 Refresh"): st.rerun()
             df_filtered = df_raw if filter_g == "All Groups" else df_raw[df_raw['client_group'] == filter_g]
             
-            if 'sel_v203' not in st.session_state: st.session_state.sel_v203 = False
-            if t3.button("✅ Select All"): st.session_state.sel_v203 = True; st.rerun()
-            if t4.button("🧹 Clear All"): st.session_state.sel_v203 = False; st.rerun()
+            if 'sel_v204' not in st.session_state: st.session_state.sel_v204 = False
+            if t3.button("✅ Select All"): st.session_state.sel_v204 = True; st.rerun()
+            if t4.button("🧹 Clear All"): st.session_state.sel_v204 = False; st.rerun()
             
             display_cols_ordered = [
                 "name_ch", "biz_name", "client_group", "incorp_place", "incorp_place_others", 
@@ -1267,7 +1269,7 @@ if choice == "📊 Dashboard":
                     "incorp_place": "Incorp Place"
                 }, inplace=True)
                 
-                df_display.insert(0, "Select", st.session_state.sel_v203)
+                df_display.insert(0, "Select", st.session_state.sel_v204)
                 
                 s = df_display["Company Name EN"].astype(str)
                 df_display.index = s + s.groupby(s).cumcount().map(lambda x: '\u200B' * x)
@@ -1295,10 +1297,10 @@ if choice == "📊 Dashboard":
                     column_config=col_cfg,
                     disabled=disabled_cols,
                     use_container_width=True,
-                    key="dash_v203"
+                    key="dash_v204"
                 )
                 
-                if st.button("💾 Save Batch Edits", key="btn_save_grid_v203"):
+                if st.button("💾 Save Batch Edits", key="btn_save_grid_v204"):
                     try:
                         with engine.begin() as conn:
                             for c_name_idx, r in edit_df.iterrows():
@@ -1375,7 +1377,6 @@ if choice == "📊 Dashboard":
                     mask = df_raw.apply(match_selected, axis=1)
                     final_data = df_raw[mask]
                     
-                    # V203: New Export Action Bar (Prevents 502 Crash)
                     c_act1, c_act2, c_act3 = st.columns([4, 2, 2])
                     
                     exp_opt1 = c_act1.selectbox(
@@ -1394,29 +1395,30 @@ if choice == "📊 Dashboard":
                     
                     if c_act2.button("🚀 Generate Report", use_container_width=True, key="btn_gen1"):
                         with st.spinner("Generating... Please wait..."):
+                            now_d = datetime.now(HKT).strftime('%Y%m%d')
                             if "Internal Export - PDF" in exp_opt1:
                                 st.session_state.ex_data1 = generate_custom_pdf(final_data)
-                                st.session_state.ex_name1 = "Company_Report_Internal.pdf"
+                                st.session_state.ex_name1 = f"Company_Report_Internal_{now_d}.pdf"
                                 st.session_state.ex_mime1 = "application/pdf"
                             elif "Internal Export - Excel" in exp_opt1:
                                 st.session_state.ex_data1 = generate_general_excel(final_data)
-                                st.session_state.ex_name1 = "Company_Data_Internal.xlsx"
+                                st.session_state.ex_name1 = f"Company_Report_Internal_{now_d}.xlsx"
                                 st.session_state.ex_mime1 = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             elif "Client Export - ZIP (PDFs" in exp_opt1:
                                 st.session_state.ex_data1 = create_zip_pdfs(final_data, "All")
-                                st.session_state.ex_name1 = "Company_Reports_ZIP.zip"
+                                st.session_state.ex_name1 = f"Company_Reports_PDF_{now_d}.zip"
                                 st.session_state.ex_mime1 = "application/zip"
                             elif "Client Export - ZIP (Excels" in exp_opt1:
                                 st.session_state.ex_data1 = create_zip_excels(final_data, "All")
-                                st.session_state.ex_name1 = "Company_Data_ZIP.zip"
+                                st.session_state.ex_name1 = f"Company_Reports_Excel_{now_d}.zip"
                                 st.session_state.ex_mime1 = "application/zip"
                             elif "External Export - PDF" in exp_opt1:
                                 st.session_state.ex_data1 = generate_custom_pdf(final_data, hide_client_group=True)
-                                st.session_state.ex_name1 = "Company_Report_External.pdf"
+                                st.session_state.ex_name1 = f"Company_Report_External_{now_d}.pdf"
                                 st.session_state.ex_mime1 = "application/pdf"
                             elif "External Export - Excel" in exp_opt1:
                                 st.session_state.ex_data1 = generate_general_excel(final_data, hide_client_group=True)
-                                st.session_state.ex_name1 = "Company_Data_External.xlsx"
+                                st.session_state.ex_name1 = f"Company_Report_External_{now_d}.xlsx"
                                 st.session_state.ex_mime1 = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
                     if 'ex_data1' in st.session_state:
@@ -1433,8 +1435,8 @@ if choice == "📊 Dashboard":
                     st.write("---")
                     with st.popover("🧨 BATCH DELETE"):
                         st.error("🛑 DANGER ZONE")
-                        conf_b = st.text_input("Type DELETE", key="batch_del_v203")
-                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v203"):
+                        conf_b = st.text_input("Type DELETE", key="batch_del_v204")
+                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v204"):
                             df_raw[~mask].to_sql('companies', engine, if_exists='replace', index=False)
                             st.rerun()
             else:
@@ -1451,15 +1453,15 @@ if choice == "📊 Dashboard":
                 
                 df_alerts_filtered = df_alerts if filter_alert_g == "All Groups" else df_alerts[df_alerts['Client Group'] == filter_alert_g]
                 
-                if 'sel_alert_v203' not in st.session_state: st.session_state.sel_alert_v203 = False
-                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v203 = True; st.rerun()
-                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v203 = False; st.rerun()
+                if 'sel_alert_v204' not in st.session_state: st.session_state.sel_alert_v204 = False
+                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v204 = True; st.rerun()
+                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v204 = False; st.rerun()
                 
                 alert_cols_order = ["Company Name EN", "Company Name CH", "Business Name", "Client Group", "Incorp Place", "Year", "BR No.", "BR Paid By", "BR Status", "BR Deadline", "AR Status", "AR Deadline", "Remark", "branch_code_raw"]
                 df_alerts_display = df_alerts_filtered[alert_cols_order].copy()
                 
                 if not df_alerts_display.empty:
-                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v203)
+                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v204)
                     
                     s2 = df_alerts_display["Company Name EN"].astype(str)
                     df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '\u200B' * x)
@@ -1476,7 +1478,7 @@ if choice == "📊 Dashboard":
                         }, 
                         use_container_width=True,
                         disabled=[c for c in df_alerts_display.columns if c != "Select"],
-                        key="alert_grid_v203"
+                        key="alert_grid_v204"
                     )
                     
                     selected_alerts = df_alerts_display[alert_edit["Select"] == True]
@@ -1502,7 +1504,6 @@ if choice == "📊 Dashboard":
                     if export_target is not None:
                         st.info(f"✅ **{len(export_target)}** tasks selected for export.")
                         
-                        # V203: New Export Action Bar for Tab 2
                         ca1, ca2, ca3 = st.columns([4, 2, 2])
                         exp_opt2 = ca1.selectbox(
                             "📤 Select Export Format",
@@ -1520,29 +1521,30 @@ if choice == "📊 Dashboard":
                         
                         if ca2.button("🚀 Generate Report", use_container_width=True, key="btn_gen2"):
                             with st.spinner("Generating... Please wait..."):
+                                now_d = datetime.now(HKT).strftime('%Y%m%d')
                                 if "Internal Export - PDF" in exp_opt2:
                                     st.session_state.ex_data2 = generate_outstanding_pdf(export_target)
-                                    st.session_state.ex_name2 = "Outstanding_Internal.pdf"
+                                    st.session_state.ex_name2 = f"Outstanding_Internal_{now_d}.pdf"
                                     st.session_state.ex_mime2 = "application/pdf"
                                 elif "Internal Export - Excel" in exp_opt2:
                                     st.session_state.ex_data2 = generate_beautiful_excel(export_target)
-                                    st.session_state.ex_name2 = "Outstanding_Internal.xlsx"
+                                    st.session_state.ex_name2 = f"Outstanding_Internal_{now_d}.xlsx"
                                     st.session_state.ex_mime2 = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                 elif "Client Export - ZIP (PDFs" in exp_opt2:
                                     st.session_state.ex_data2 = create_zip_pdfs(export_target, "Outstanding")
-                                    st.session_state.ex_name2 = "Outstanding_ZIP.zip"
+                                    st.session_state.ex_name2 = f"Outstanding_PDF_{now_d}.zip"
                                     st.session_state.ex_mime2 = "application/zip"
                                 elif "Client Export - ZIP (Excels" in exp_opt2:
                                     st.session_state.ex_data2 = create_zip_excels(export_target, "Outstanding")
-                                    st.session_state.ex_name2 = "Outstanding_ZIP.zip"
+                                    st.session_state.ex_name2 = f"Outstanding_Excel_{now_d}.zip"
                                     st.session_state.ex_mime2 = "application/zip"
                                 elif "External Export - PDF" in exp_opt2:
                                     st.session_state.ex_data2 = generate_outstanding_pdf(export_target, hide_client_group=True)
-                                    st.session_state.ex_name2 = "Outstanding_External.pdf"
+                                    st.session_state.ex_name2 = f"Outstanding_External_{now_d}.pdf"
                                     st.session_state.ex_mime2 = "application/pdf"
                                 elif "External Export - Excel" in exp_opt2:
                                     st.session_state.ex_data2 = generate_beautiful_excel(export_target, hide_client_group=True)
-                                    st.session_state.ex_name2 = "Outstanding_External.xlsx"
+                                    st.session_state.ex_name2 = f"Outstanding_External_{now_d}.xlsx"
                                     st.session_state.ex_mime2 = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
                         if 'ex_data2' in st.session_state:
@@ -1574,9 +1576,9 @@ if choice == "📊 Dashboard":
             
             if ti5.button("🔄 Refresh", key="ref_inv"): st.rerun()
             
-            if 'sel_inv_v203' not in st.session_state: st.session_state.sel_inv_v203 = False
-            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v203 = True; st.rerun()
-            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v203 = False; st.rerun()
+            if 'sel_inv_v204' not in st.session_state: st.session_state.sel_inv_v204 = False
+            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v204 = True; st.rerun()
+            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v204 = False; st.rerun()
             
             inv_records = []
             for row in raw_dict_list:
@@ -1685,7 +1687,7 @@ if choice == "📊 Dashboard":
                 df_inv_display = df_inv[inv_cols_order].copy()
                 
                 if not df_inv_display.empty:
-                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v203)
+                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v204)
                     
                     s3 = df_inv_display["Company Name EN"].astype(str)
                     df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '\u200B' * x)
@@ -1702,7 +1704,7 @@ if choice == "📊 Dashboard":
                         }, 
                         use_container_width=True,
                         disabled=[c for c in df_inv_display.columns if c != "Select"],
-                        key="inv_grid_v203"
+                        key="inv_grid_v204"
                     )
                     
                     selected_inv = df_inv_display[inv_edit["Select"] == True]
@@ -1728,7 +1730,6 @@ if choice == "📊 Dashboard":
                     if export_target_inv is not None:
                         st.info(f"✅ **{len(export_target_inv)}** records selected for export.")
                         
-                        # V203: New Export Action Bar for Tab 3
                         ci1, ci2, ci3 = st.columns([4, 2, 2])
                         exp_opt3 = ci1.selectbox(
                             "📤 Select Export Format",
@@ -1746,29 +1747,30 @@ if choice == "📊 Dashboard":
                         
                         if ci2.button("🚀 Generate Report", use_container_width=True, key="btn_gen3"):
                             with st.spinner("Generating... Please wait..."):
+                                now_d = datetime.now(HKT).strftime('%Y%m%d')
                                 if "Internal Export - PDF" in exp_opt3:
                                     st.session_state.ex_data3 = generate_inv_pdf(export_target_inv, str(target_year), month_str)
-                                    st.session_state.ex_name3 = f"Invoicing_Internal_{target_year}_{month_str}.pdf"
+                                    st.session_state.ex_name3 = f"Invoicing_Internal_{target_year}_{month_str}_{now_d}.pdf"
                                     st.session_state.ex_mime3 = "application/pdf"
                                 elif "Internal Export - Excel" in exp_opt3:
                                     st.session_state.ex_data3 = generate_inv_excel(export_target_inv, str(target_year), month_str)
-                                    st.session_state.ex_name3 = f"Invoicing_Internal_{target_year}_{month_str}.xlsx"
+                                    st.session_state.ex_name3 = f"Invoicing_Internal_{target_year}_{month_str}_{now_d}.xlsx"
                                     st.session_state.ex_mime3 = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                 elif "Client Export - ZIP (PDFs" in exp_opt3:
                                     st.session_state.ex_data3 = create_zip_pdfs(export_target_inv, "Invoicing", str(target_year), month_str)
-                                    st.session_state.ex_name3 = f"Invoicing_ZIP_{target_year}_{month_str}.zip"
+                                    st.session_state.ex_name3 = f"Invoicing_PDF_{target_year}_{month_str}_{now_d}.zip"
                                     st.session_state.ex_mime3 = "application/zip"
                                 elif "Client Export - ZIP (Excels" in exp_opt3:
                                     st.session_state.ex_data3 = create_zip_excels(export_target_inv, "Invoicing", str(target_year), month_str)
-                                    st.session_state.ex_name3 = f"Invoicing_ZIP_{target_year}_{month_str}.zip"
+                                    st.session_state.ex_name3 = f"Invoicing_Excel_{target_year}_{month_str}_{now_d}.zip"
                                     st.session_state.ex_mime3 = "application/zip"
                                 elif "External Export - PDF" in exp_opt3:
                                     st.session_state.ex_data3 = generate_inv_pdf(export_target_inv, str(target_year), month_str, hide_client_group=True)
-                                    st.session_state.ex_name3 = f"Invoicing_External_{target_year}_{month_str}.pdf"
+                                    st.session_state.ex_name3 = f"Invoicing_External_{target_year}_{month_str}_{now_d}.pdf"
                                     st.session_state.ex_mime3 = "application/pdf"
                                 elif "External Export - Excel" in exp_opt3:
                                     st.session_state.ex_data3 = generate_inv_excel(export_target_inv, str(target_year), month_str, hide_client_group=True)
-                                    st.session_state.ex_name3 = f"Invoicing_External_{target_year}_{month_str}.xlsx"
+                                    st.session_state.ex_name3 = f"Invoicing_External_{target_year}_{month_str}_{now_d}.xlsx"
                                     st.session_state.ex_mime3 = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
                         if 'ex_data3' in st.session_state:
@@ -2020,34 +2022,34 @@ elif choice == "🏢 Company Register":
         st.write("---"); st.header("📝 Compliance Filings (Local Company)")
         st.subheader("📑 Company Secretary Appointment (ND2A)")
         cc1, cc2, cc3, cc4 = st.columns([3, 3, 3, 1])
-        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v203", format="YYYY/MM/DD")
-        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v203", format="YYYY/MM/DD")
+        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v204", format="YYYY/MM/DD")
+        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v204", format="YYYY/MM/DD")
         with cc3:
             st.info("Statutory Period: 15 days")
             if n2e: n2_deadline = (n2e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n2_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v203")
+        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v204")
         
         st.subheader("📑 Company Secretary Resignation (ND4)")
         cc5, cc6, cc7, cc8 = st.columns([3, 3, 3, 1])
-        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v203", format="YYYY/MM/DD")
-        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v203", format="YYYY/MM/DD")
+        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v204", format="YYYY/MM/DD")
+        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v204", format="YYYY/MM/DD")
         with cc7:
             st.info("Statutory Period: 15 days")
             if n4e: n4_deadline = (n4e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n4_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v203")
+        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v204")
         
     elif is_hk_reg:
         st.write("---"); st.header("📝 Compliance Filings (Non-HK Company)")
         st.subheader("📑 Secretary & Director Changes (NN6)")
         c_nn1, c_nn2, c_nn3, c_nn4 = st.columns([3, 3, 3, 1])
-        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v203", format="YYYY/MM/DD")
-        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v203", format="YYYY/MM/DD")
+        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v204", format="YYYY/MM/DD")
+        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v204", format="YYYY/MM/DD")
         with c_nn3:
             st.info("Statutory Period: 1 Month")
             if nn6_e:
                 nn6_deadline = add_one_month(nn6_e)
                 st.markdown(f"**Deadline: :red[{nn6_deadline.strftime('%Y/%m/%d')}]**")
-        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v203")
+        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v204")
 
     st.write("---"); st.subheader("📍 Address & Contact")
     ca1, ca2 = st.columns(2)
@@ -2063,7 +2065,7 @@ elif choice == "🏢 Company Register":
     st.write("---"); st.subheader("📌 Remarks")
     remark_input = st.text_area("Remark / 備註", value=d['rem'], help="此備註會同步顯示於報告及總覽表格中。")
     
-    row_v203 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
+    row_v204 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
     
     if mode == "✏️ Edit Existing" and target_name:
         st.write("---")
@@ -2111,7 +2113,7 @@ elif choice == "🏢 Company Register":
                 if not clean_bcode or clean_bcode == '000':
                     st.error("❌ Please enter a valid branch code (e.g. 001)")
                 else:
-                    new_br_row = row_v203.copy()
+                    new_br_row = row_v204.copy()
                     new_br_row['branch_code'] = clean_bcode
                     new_br_row['biz_name'] = new_bbiz.strip()
                     new_br_row['br_ref_date'] = new_br_ref
@@ -2142,18 +2144,18 @@ elif choice == "🏢 Company Register":
 
     st.write("---")
     if mode in ["🆕 Add New", "📋 Copy Existing"]:
-        if st.button("💾 Save To Cloud", key="btn_save_v203"):
+        if st.button("💾 Save To Cloud", key="btn_save_v204"):
             if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
             else:
                 try:
-                    pd.DataFrame([row_v203]).to_sql('companies', engine, if_exists='append', index=False)
+                    pd.DataFrame([row_v204]).to_sql('companies', engine, if_exists='append', index=False)
                     st.success("✅ Success!"); st.rerun()
                 except Exception as save_err:
                     st.error(f"❌ Save Failed! Error details: {save_err}")
     else:
         u_col, d_col = st.columns(2)
         with u_col.popover("🆙 Update"):
-            if st.button("Confirm Update (總行及分行資料同步更新)", key="btn_update_v203"):
+            if st.button("Confirm Update (總行及分行資料同步更新)", key="btn_update_v204"):
                 if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
                 else:
                     try:
@@ -2162,10 +2164,10 @@ elif choice == "🏢 Company Register":
                         
                         df_all = df_all[df_all['name_en'] != target_name]
                         
-                        insert_list = [row_v203]
+                        insert_list = [row_v204]
                         for br in existing_branches:
                             b_code = str(br.get('branch_code')).strip()
-                            br_updated = row_v203.copy()
+                            br_updated = row_v204.copy()
                             br_updated['branch_code'] = b_code
                             br_updated['biz_name'] = updated_branch_biz.get(b_code, br.get('biz_name'))
                             br_updated['br_ref_date'] = br.get('br_ref_date')
@@ -2181,32 +2183,32 @@ elif choice == "🏢 Company Register":
                         df_backup.to_sql('companies', engine, if_exists='replace', index=False)
                         st.error(f"🛑 SQL Error Detected! Rollback completed. Details: {trans_err}")
         with d_col.popover("🚨 DELETE"):
-            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v203")
-            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v203"):
+            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v204")
+            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v204"):
                 df_all = df_all[df_all['name_en'] != target_name]
                 df_all.to_sql('companies', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 7. Group Management ---
 elif choice == "⚙️ Group Management":
     st.header("⚙️ Group Management")
-    new_g = st.text_input("New Group Name", key="new_group_input_v203")
-    if st.button("Add Group", key="btn_add_group_v203"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
+    new_g = st.text_input("New Group Name", key="new_group_input_v204")
+    if st.button("Add Group", key="btn_add_group_v204"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
     st.write("---")
     g_df = pd.read_sql("SELECT * FROM client_groups", engine)
     if not g_df.empty:
         g_df = g_df.sort_values(by=['group_name'], na_position='last')
-        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v203")
+        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v204")
         c1, c2 = st.columns(2)
         with c1.popover("✏️ Rename Group"):
-            ren = st.text_input("New Name:", key="rename_input_v203")
-            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v203")
-            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v203"):
+            ren = st.text_input("New Name:", key="rename_input_v204")
+            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v204")
+            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v204"):
                 comp_df = pd.read_sql("SELECT * FROM companies", engine)
                 comp_df.loc[comp_df['client_group'] == target, 'client_group'] = ren
                 comp_df.to_sql('companies', engine, if_exists='replace', index=False)
                 g_df.replace({target: ren}).to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
         with c2.popover("🗑️ Delete Group"):
-            if st.button("Confirm Delete Group", key="btn_group_delete_v203"): 
+            if st.button("Confirm Delete Group", key="btn_group_delete_v204"): 
                 g_df[g_df['group_name'] != target].to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 8. Data Exchange ---
@@ -2324,11 +2326,11 @@ elif choice == "📤 Data Exchange":
     
     buf_e = io.BytesIO()
     df_export.to_excel(buf_e, index=False)
-    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name="Backup.xlsx", key="btn_export_all_v203")
+    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name="Backup.xlsx", key="btn_export_all_v204")
     
     st.write("---")
     
-    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v203")
+    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v204")
     if up:
         try:
             up_df = pd.read_excel(up, engine='openpyxl', keep_default_na=False)
@@ -2516,7 +2518,7 @@ elif choice == "📤 Data Exchange":
                     if diff_list: st.table(pd.DataFrame(diff_list))
                     else: st.info("No changes detected in the file. Click Sync to proceed anyway.")
                     
-                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v203"):
+                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v204"):
                         new_comp_records = []
                         for idx, row_new in up_df.iterrows():
                             base_dt = get_base_date(row_new)
