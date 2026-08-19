@@ -107,12 +107,12 @@ def calc_es_deadline(incorp_dt, year):
         return add_months(fp_end, 6)
 
 current_system_year = datetime.now(HKT).year
-active_years = list(range(2025, current_system_year + 2))
+active_years = list(range(2025, current_system_year + 5))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V212", layout="wide")
-choice = st.sidebar.radio("Navigation (V212)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V213", layout="wide")
+choice = st.sidebar.radio("Navigation (V213)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -139,7 +139,6 @@ EXCHANGE_COL_MAPPING = {
     'nn6_download': 'NN6 Download', 'dissolution_date': 'Dissolution Date', 'remark': 'Remark'
 }
 REVERSE_EXCHANGE_MAPPING = {v: k for k, v in EXCHANGE_COL_MAPPING.items()}
-# Legacy compatibility mappings
 REVERSE_EXCHANGE_MAPPING['Business Name (業務名稱)'] = 'biz_name'
 REVERSE_EXCHANGE_MAPPING['BR No. (8-digit)'] = 'br_no'
 
@@ -268,7 +267,6 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
         cess_date = to_date(row.get('cessation_date'))
         year_display_data = {}
         
-        # Universal Paid By Fallbacks
         prev_br_by = 'Firm'
         prev_afr_fee_by = 'Firm'
         prev_es_fee_by = 'Firm'
@@ -365,9 +363,9 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
             yd = year_display_data[y]
             
             if y == current_system_year:
-                header_html = f"<tr><th colspan='2' style='background-color:#ebf5fb; color:#2980b9; text-align:center; border: 1px solid #aed6f1; padding: 6px 0; font-weight: bold;'>=== {y} Annual Cycle (Current Year) ===</th></tr>"
+                header_html = f"<tr><th colspan='2' style='background-color:#ebf5fb; color:#2980b9; text-align:center; border: 1px solid #aed6f1; padding: 6px 0; font-weight: bold;'>=== Year {y} Annual Cycle (Current) ===</th></tr>"
             else:
-                header_html = f"<tr><th colspan='2' style='background-color:#fcfcfc; color:#95a5a6; text-align:center; font-weight:normal; border-top: 1px dashed #eaeded; padding: 6px 0;'>--- {y} Annual Cycle ---</th></tr>"
+                header_html = f"<tr><th colspan='2' style='background-color:#fcfcfc; color:#95a5a6; text-align:center; font-weight:normal; border-top: 1px dashed #eaeded; padding: 6px 0;'>--- Year {y} Annual Cycle ---</th></tr>"
             
             dynamic_annual_rows += header_html
             
@@ -590,6 +588,7 @@ def generate_general_excel(selected_df, hide_client_group=False):
                     row[f'{y} ES Fee Paid By'] = 'N/A'
                     row[f'{y} ES Fee Paid Date'] = ''
                     row[f'{y} ES Filed Date'] = ''
+                    row[f'{y} ES Status'] = 'N/A'
                     prev_br_by, prev_afr_fee_by, prev_es_fee_by = 'N/A', 'N/A', 'N/A'
                     continue
                     
@@ -627,11 +626,18 @@ def generate_general_excel(selected_df, hide_client_group=False):
                 
                 es_dt = str(y_data.get('es_date', ''))
                 if es_dt in ['None', 'nan', '<NA>']: es_dt = ''
+                
+                es_status = y_data.get('es_status', '')
+                if not es_status:
+                    if es_dt: es_status = 'Completed'
+                    else: es_status = 'Pending'
                     
                 if is_branch:
                     row[f'{y} AR/AFR Status'] = "N/A (Branch)"
+                    row[f'{y} ES Status'] = "N/A (Branch)"
                 else:
                     row[f'{y} AR/AFR Status'] = ar_cr_status
+                    row[f'{y} ES Status'] = es_status
                 
                 br_d = str(y_data.get('fee_date', y_data.get('br_date', '')))
                 if br_d in ['None', 'nan', '<NA>']: br_d = ''
@@ -650,7 +656,9 @@ def generate_general_excel(selected_df, hide_client_group=False):
                 elif ar_dt and not is_branch: ar_dt = ar_dt.replace('-', '/')
                 elif is_branch: ar_dt = ''
                 
-                if es_dt and not is_branch: es_dt = es_dt.replace('-', '/')
+                if es_status == 'Exempt':
+                    es_dt = ''
+                elif es_dt and not is_branch: es_dt = es_dt.replace('-', '/')
                 elif is_branch: es_dt = ''
                 
                 if is_branch and cess_date and y >= cess_date.year:
@@ -695,7 +703,7 @@ def generate_general_excel(selected_df, hide_client_group=False):
         
         dyn_cols = []
         for y in report_years:
-            dyn_cols.extend([f"{y} Fee Paid By", f"{y} Fee Paid Date", f"{y} AR/AFR Fee Paid By", f"{y} AR/AFR Fee Paid Date", f"{y} AR/AFR Filed Date", f"{y} AR/AFR Status", f"{y} ES Fee Paid By", f"{y} ES Fee Paid Date", f"{y} ES Filed Date"])
+            dyn_cols.extend([f"{y} Fee Paid By", f"{y} Fee Paid Date", f"{y} AR/AFR Fee Paid By", f"{y} AR/AFR Fee Paid Date", f"{y} AR/AFR Filed Date", f"{y} AR/AFR Status", f"{y} ES Fee Paid By", f"{y} ES Fee Paid Date", f"{y} ES Filed Date", f"{y} ES Status"])
         
         headers = [c for c in base_cols_ordered if c in df_export.columns] + [c for c in dyn_cols if c in df_export.columns] + ['Remark']
         if hide_client_group and 'Client Group' in headers:
@@ -766,7 +774,7 @@ def generate_beautiful_excel(df, hide_client_group=False):
     fill_zebra = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
     thin_border = Border(left=Side(style='thin', color='D9D9D9'), right=Side(style='thin', color='D9D9D9'), top=Side(style='thin', color='D9D9D9'), bottom=Side(style='thin', color='D9D9D9'))
 
-    headers = ["Client Group", "Company Name EN", "Company Name CH", "Business Name", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline", "Remark"]
+    headers = ["Client Group", "Company Name EN", "Company Name CH", "Business Name", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "Fee Status", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "AR/AFR Status", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline", "ES Status", "Remark"]
     if hide_client_group: headers.remove("Client Group")
 
     groups = df['Client Group'].unique() if 'Client Group' in df.columns else ['Outstanding']
@@ -793,7 +801,7 @@ def generate_beautiful_excel(df, hide_client_group=False):
             cell.border = thin_border
         ws.row_dimensions[3].height = 25
 
-        center_cols = ["Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline"]
+        center_cols = ["Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "Fee Status", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "AR/AFR Status", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline", "ES Status"]
 
         group_df = df[df['Client Group'] == g] if 'Client Group' in df.columns else df
         
@@ -811,14 +819,17 @@ def generate_beautiful_excel(df, hide_client_group=False):
                 "Fee Paid By": item.get("Fee Paid By", ""),
                 "Fee Paid Date": item.get("Fee Paid Date", ""),
                 "Fee Deadline": item.get("Fee Deadline", ""),
+                "Fee Status": item.get("Fee Status", ""),
                 "AR/AFR Fee By": item.get("AR/AFR Fee By", ""),
                 "AR/AFR Fee Date": item.get("AR/AFR Fee Date", ""),
                 "AR/AFR Filed Date": item.get("AR/AFR Filed Date", ""),
                 "AR/AFR Deadline": item.get("AR/AFR Deadline", ""),
+                "AR/AFR Status": item.get("AR/AFR Status", ""),
                 "ES Fee By": item.get("ES Fee By", ""),
                 "ES Fee Date": item.get("ES Fee Date", ""),
                 "ES Filed Date": item.get("ES Filed Date", ""),
                 "ES Deadline": item.get("ES Deadline", ""),
+                "ES Status": item.get("ES Status", ""),
                 "Remark": item.get("Remark", "")
             }
             
@@ -832,6 +843,12 @@ def generate_beautiful_excel(df, hide_client_group=False):
                 if h in center_cols: cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
                 else: cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
                     
+                if "Status" in h:
+                    if "Overdue" in val_str or "Returned" in val_str: cell.font = font_red
+                    elif "Due Soon" in val_str or "Processing" in val_str: cell.font = font_yellow
+                    elif "Exempt" in val_str or "Not Incorporated" in val_str or "Pending" in val_str or "Branch" in val_str or "Cessed" in val_str or "Included" in val_str: cell.font = font_grey
+                    else: cell.font = font_green
+                        
             ws.row_dimensions[current_row].height = 20
             current_row += 1
 
@@ -852,7 +869,7 @@ def generate_beautiful_excel(df, hide_client_group=False):
 @st.cache_data(show_spinner=False)
 def generate_outstanding_pdf(df, hide_client_group=False):
     now_str = datetime.now(HKT).strftime("%Y/%m/%d %H:%M")
-    colspan = "18" if hide_client_group else "19"
+    colspan = "17" if hide_client_group else "18"
     cg_th = "" if hide_client_group else '<th style="width:4%">Client Group</th>'
     
     html = f"""
@@ -866,11 +883,11 @@ def generate_outstanding_pdf(df, hide_client_group=False):
                 @bottom-left {{ content: "Outstanding Report | Generated on: {now_str}"; font-size: 8pt; color: #7f8c8d; font-family: 'Noto Sans TC', sans-serif; }}
                 @bottom-right {{ content: counter(page) " of " counter(pages) " Page(s)"; font-size: 8pt; color: #7f8c8d; font-family: 'Noto Sans TC', sans-serif; }}
             }}
-            body {{ font-family: 'Noto Sans TC', sans-serif; font-size: 7.5pt; color: #2c3e50; margin: 0; padding: 0; }}
+            body {{ font-family: 'Noto Sans TC', sans-serif; font-size: 7pt; color: #2c3e50; margin: 0; padding: 0; }}
             table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
             thead {{ display: table-header-group; }}
             tr {{ page-break-inside: avoid; }}
-            th {{ background-color: #1f497d; color: white; padding: 3px 1px; border: 1px solid #d9d9d9; font-size: 6.5pt; text-align: center; vertical-align: middle; word-wrap: break-word; }}
+            th {{ background-color: #1f497d; color: white; padding: 3px 1px; border: 1px solid #d9d9d9; font-size: 6pt; text-align: center; vertical-align: middle; word-wrap: break-word; }}
             td {{ padding: 3px 1px; border: 1px solid #d9d9d9; text-align: center; vertical-align: middle; word-wrap: break-word; }}
             tr:nth-child(even) td {{ background-color: #f8f9fa; }}
             .text-left {{ text-align: left; font-weight: bold; color: #2980b9; padding-left: 3px; }}
@@ -890,32 +907,49 @@ def generate_outstanding_pdf(df, hide_client_group=False):
                     <th style="width:10%">Company Name EN</th>
                     <th style="width:3.5%">Place</th>
                     <th style="width:3%">Year</th>
-                    <th style="width:4.5%">Anniversary<br>(MM/DD)</th>
+                    <th style="width:4.5%">Anniv<br>(MM/DD)</th>
                     <th style="width:5%">BR No.</th>
                     <th style="width:4%">Fee By</th>
                     <th style="width:5.5%">Fee Date</th>
-                    <th style="width:5.5%">Fee DL</th>
+                    <th style="width:7%">Fee DL & Status</th>
                     <th style="width:4%">AFR Fee By</th>
                     <th style="width:5.5%">AFR Fee Dt</th>
                     <th style="width:5.5%">AFR Filed</th>
-                    <th style="width:5.5%">AFR DL</th>
+                    <th style="width:7%">AFR DL & Status</th>
                     <th style="width:4%">ES Fee By</th>
                     <th style="width:5.5%">ES Fee Dt</th>
                     <th style="width:5.5%">ES Filed</th>
-                    <th style="width:5.5%">ES DL</th>
+                    <th style="width:7%">ES DL & Status</th>
                     <th>Remark</th>
                 </tr>
             </thead>
             <tbody>
     """
     for _, r in df.iterrows():
+        br_val = clean_status(r.get('Fee Status', ''))
+        ar_val = clean_status(r.get('AR/AFR Status', ''))
+        es_val = clean_status(r.get('ES Status', ''))
+        
+        def get_color(v):
+            if "Overdue" in v or "Returned" in v: return "#ff0000"
+            if "Due Soon" in v or "Processing" in v: return "#ff9900"
+            if "Exempt" in v or "Not Incorporated" in v or "Pending" in v or "Branch" in v or "Cessed" in v or "Included" in v: return "#7f8c8d"
+            return "#00b050"
+            
+        br_color = get_color(br_val)
+        ar_color = get_color(ar_val)
+        es_color = get_color(es_val)
         cg_td = "" if hide_client_group else f"<td>{r.get('Client Group', '')}</td>"
         
         name_en = r.get('Company Name EN', '')
         biz = str(r.get('Business Name', '')).strip()
         if biz and biz not in ['None', 'nan']:
-            name_en += f"<br><span style='font-size: 5.5pt; color: #7f8c8d; font-weight: normal;'>Business Name: {biz}</span>"
+            name_en += f"<br><span style='font-size: 5pt; color: #7f8c8d; font-weight: normal;'>Business Name: {biz}</span>"
             
+        fee_dl_stat = f"{r.get('Fee Deadline', '')}<br><span style='color: {br_color}; font-size: 6pt;'>{br_val}</span>" if r.get('Fee Deadline') not in ["", "N/A"] else r.get('Fee Deadline', '')
+        afr_dl_stat = f"{r.get('AR/AFR Deadline', '')}<br><span style='color: {ar_color}; font-size: 6pt;'>{ar_val}</span>" if r.get('AR/AFR Deadline') not in ["", "N/A"] else r.get('AR/AFR Deadline', '')
+        es_dl_stat = f"{r.get('ES Deadline', '')}<br><span style='color: {es_color}; font-size: 6pt;'>{es_val}</span>" if r.get('ES Deadline') not in ["", "N/A"] else r.get('ES Deadline', '')
+        
         html += f"""
         <tr>
             {cg_td}
@@ -926,16 +960,16 @@ def generate_outstanding_pdf(df, hide_client_group=False):
             <td style="font-weight: bold;">{r.get('BR No.', '')}</td>
             <td>{r.get('Fee Paid By', '')}</td>
             <td>{r.get('Fee Paid Date', '')}</td>
-            <td>{r.get('Fee Deadline', '')}</td>
+            <td>{fee_dl_stat}</td>
             <td>{r.get('AR/AFR Fee By', '')}</td>
             <td>{r.get('AR/AFR Fee Date', '')}</td>
             <td>{r.get('AR/AFR Filed Date', '')}</td>
-            <td>{r.get('AR/AFR Deadline', '')}</td>
+            <td>{afr_dl_stat}</td>
             <td>{r.get('ES Fee By', '')}</td>
             <td>{r.get('ES Fee Date', '')}</td>
             <td>{r.get('ES Filed Date', '')}</td>
-            <td>{r.get('ES Deadline', '')}</td>
-            <td style="text-align: left; font-size: 6.5pt; color: #7f8c8d;">{r.get('Remark', '')}</td>
+            <td>{es_dl_stat}</td>
+            <td style="text-align: left; font-size: 6pt; color: #7f8c8d;">{r.get('Remark', '')}</td>
         </tr>
         """
     html += "</tbody></table></body></html>"
@@ -1241,7 +1275,6 @@ if choice == "📊 Dashboard":
             is_branch = branch_code != '000'
             has_branch = row.get('name_en') in companies_with_branches
             
-            # Universal Paid By Fallbacks
             prev_br_by = 'Firm'
             prev_afr_fee_by = 'Firm'
             prev_es_fee_by = 'Firm'
@@ -1296,6 +1329,10 @@ if choice == "📊 Dashboard":
                 cr_stat = y_data.get('ar_cr_status', '')
                 if not cr_stat: cr_stat = 'Completed' if ar_dt_val else 'Pending'
                 row[f'{y}_ar_cr_status'] = cr_stat
+                
+                es_stat = y_data.get('es_status', '')
+                if not es_stat: es_stat = 'Completed' if es_dt_val else 'Pending'
+                row[f'{y}_es_status'] = es_stat
 
             name = str(row.get('name_en', 'Unknown')).strip()
             name_ch = str(row.get('name_ch', ''))
@@ -1332,6 +1369,7 @@ if choice == "📊 Dashboard":
                 es_fee_by = str(row.get(f'{y}_es_fee_by', 'N/A'))
                 es_fee_dt = to_date(row.get(f'{y}_es_fee_date'))
                 last_es = to_date(row.get(f'{y}_es_date'))
+                es_status_val = str(row.get(f'{y}_es_status', 'Pending'))
                 
                 if is_bvi:
                     br_dl = calc_bvi_fee_deadline(base_date, y)
@@ -1342,6 +1380,8 @@ if choice == "📊 Dashboard":
                     else: br_dl = get_anniv(y, base_date.month, base_date.day)
                     ar_dl = calc_ar_deadline(base_date, ar_ref_raw, y)
                     es_dl = None
+                
+                br_status, ar_status, es_status_disp = "🟢 Normal", "🟢 Normal", "🟢 Normal"
                 
                 br_dl_str = br_dl.strftime('%Y/%m/%d') if br_dl else "N/A"
                 ar_dl_str = ar_dl.strftime('%Y/%m/%d') if ar_dl else "N/A"
@@ -1354,10 +1394,59 @@ if choice == "📊 Dashboard":
                 es_dt_str = last_es.strftime('%Y/%m/%d') if last_es else ""
                 
                 if is_branch and cess_date and y >= cess_date.year:
+                    br_status = "✅ N/A (Cessed)"
                     br_dl_str = "N/A"
-                if ar_cr_status in ['Exempt (Dormant)', 'Included in Agent Fee'] or is_branch or y == incorp_year:
+                elif br_by == 'Client':
+                    if last_br: br_status = "✅ Client (Recorded)"
+                    else: br_status = "✅ Client (Pending Record)"
+                elif br_by == 'N/A':
+                    br_status = "✅ N/A"
+                else:
+                    if last_br: br_status = "✅ Completed"
+                    elif y > today.year: br_status = "🔵 Not yet due"
+                    elif br_dl:
+                        days_diff = (br_dl - today).days
+                        if days_diff < 0: br_status = "🔴 Overdue"
+                        elif 0 <= days_diff <= (90 if is_bvi else 30): br_status = "🟡 Due Soon"
+                
+                if ar_cr_status == 'Exempt (Dormant)':
+                    ar_status = "✅ Exempt (Dormant)"
                     ar_dl_str = "N/A"
-                if y == incorp_year or not is_bvi:
+                elif ar_cr_status == 'Included in Agent Fee':
+                    ar_status = "✅ Included"
+                    ar_dl_str = "N/A"
+                elif is_branch:
+                    if cess_date and y >= cess_date.year: ar_status = "✅ N/A (Cessed)"
+                    else: ar_status = "✅ N/A (Branch)"
+                    ar_dl_str = "N/A"
+                elif y == incorp_year:
+                    ar_status = "✅ Exempt (1st Year)"
+                    ar_dl_str = "N/A"
+                else:
+                    if last_ar or ar_cr_status == 'Completed': ar_status = "✅ Completed"
+                    elif ar_cr_status == 'Processing': ar_status = "⏳ Processing (CR)"
+                    elif ar_cr_status == 'Returned': ar_status = "⚠️ Returned (CR)"
+                    elif y > today.year: ar_status = "🔵 Not yet due"
+                    elif ar_dl:
+                        ar_days_diff = (ar_dl - today).days
+                        if ar_days_diff < 0: ar_status = "🔴 Overdue"
+                        elif 0 <= ar_days_diff <= (90 if is_bvi else 72): ar_status = "🟡 Due Soon"
+                
+                if is_bvi:
+                    if y == incorp_year:
+                        es_status_disp = "✅ Exempt (1st Year)"
+                        es_dl_str = "N/A"
+                    elif es_status_val == 'Exempt': 
+                        es_status_disp = "✅ Exempt"
+                        es_dl_str = "N/A"
+                    elif last_es or es_status_val == 'Completed': es_status_disp = "✅ Completed"
+                    elif y > today.year: es_status_disp = "🔵 Not yet due"
+                    elif es_dl:
+                        es_days_diff = (es_dl - today).days
+                        if es_days_diff < 0: es_status_disp = "🔴 Overdue"
+                        elif 0 <= es_days_diff <= 90: es_status_disp = "🟡 Due Soon"
+                else:
+                    es_status_disp = "N/A"
                     es_dl_str = "N/A"
                 
                 if br_ref_raw and ar_ref_raw and (br_ref_raw.month != ar_ref_raw.month or br_ref_raw.day != ar_ref_raw.day):
@@ -1369,23 +1458,11 @@ if choice == "📊 Dashboard":
                 else:
                     anniv_disp = base_date.strftime('%m/%d')
                         
+                # V213: Determine alert if any deadline is approaching or passed, AND date is empty
                 is_alert = False
-                if not last_br and br_dl and br_dl_str != "N/A" and br_by != 'N/A' and not (is_branch and cess_date and y >= cess_date.year):
-                    days_diff = (br_dl - today).days
-                    if days_diff <= (90 if is_bvi else 30): is_alert = True
-                
-                if not is_bvi:
-                    if not last_ar and ar_dl and ar_dl_str != "N/A" and ar_cr_status not in ['Completed', 'Exempt (Dormant)', 'Included in Agent Fee']:
-                        ar_days_diff = (ar_dl - today).days
-                        if ar_days_diff <= 72: is_alert = True
-                else:
-                    if not last_ar and ar_dl and ar_dl_str != "N/A":
-                        ar_days_diff = (ar_dl - today).days
-                        if ar_days_diff <= 90: is_alert = True
-                        
-                    if not last_es and es_dl and es_dl_str != "N/A":
-                        es_days_diff = (es_dl - today).days
-                        if es_days_diff <= 90: is_alert = True
+                if not last_br and br_status in ["🔴 Overdue", "🟡 Due Soon"]: is_alert = True
+                if not last_ar and ar_status in ["🔴 Overdue", "🟡 Due Soon", "⏳ Processing (CR)", "⚠️ Returned (CR)"]: is_alert = True
+                if not last_es and es_status_disp in ["🔴 Overdue", "🟡 Due Soon"]: is_alert = True
                         
                 if is_alert:
                     disp_name = f"{name} (-{branch_code})" if has_branch and is_branch else name
@@ -1401,14 +1478,17 @@ if choice == "📊 Dashboard":
                         "Fee Paid By": br_by,
                         "Fee Paid Date": br_dt_str,
                         "Fee Deadline": br_dl_str,
+                        "Fee Status": br_status,
                         "AR/AFR Fee By": afr_fee_by if is_bvi else "N/A",
                         "AR/AFR Fee Date": afr_fee_dt_str if is_bvi else "N/A",
                         "AR/AFR Filed Date": ar_dt_str,
                         "AR/AFR Deadline": ar_dl_str,
+                        "AR/AFR Status": ar_status,
                         "ES Fee By": es_fee_by if is_bvi else "N/A",
                         "ES Fee Date": es_fee_dt_str if is_bvi else "N/A",
                         "ES Filed Date": es_dt_str if is_bvi else "N/A",
                         "ES Deadline": es_dl_str,
+                        "ES Status": es_status_disp,
                         "Remark": remark_val,
                         "branch_code_raw": branch_code
                     })
@@ -1421,14 +1501,19 @@ if choice == "📊 Dashboard":
             sort_cols = [c for c in ['client_group', 'name_en', 'branch_code', 'incorp_place'] if c in df_raw.columns]
             df_raw = df_raw.sort_values(by=sort_cols, na_position='last')
             
-            t1, t2, t3, t4 = st.columns([3, 2, 2, 5])
+            # V213: Year Filter Integration (±1 year logic)
+            t1, t2, t3, t4, t5 = st.columns([2, 2, 2, 2, 4])
             filter_g = t1.selectbox("🔍 Filter Group", ["All Groups"] + sorted_groups)
-            if t2.button("🔄 Refresh"): st.rerun()
-            df_filtered = df_raw if filter_g == "All Groups" else df_raw[df_raw['client_group'] == filter_g]
+            target_year_disp = t2.selectbox("📅 Display Target Year", active_years, index=active_years.index(current_system_year))
             
-            if 'sel_v212' not in st.session_state: st.session_state.sel_v212 = False
-            if t3.button("✅ Select All"): st.session_state.sel_v212 = True; st.rerun()
-            if t4.button("🧹 Clear All"): st.session_state.sel_v212 = False; st.rerun()
+            if t3.button("🔄 Refresh"): st.rerun()
+            if 'sel_v213' not in st.session_state: st.session_state.sel_v213 = False
+            if t4.button("✅ Select All"): st.session_state.sel_v213 = True; st.rerun()
+            if t5.button("🧹 Clear All"): st.session_state.sel_v213 = False; st.rerun()
+            
+            disp_years = [y for y in active_years if target_year_disp - 1 <= y <= target_year_disp + 1]
+            
+            df_filtered = df_raw if filter_g == "All Groups" else df_raw[df_raw['client_group'] == filter_g]
             
             display_cols_ordered = [
                 "name_ch", "biz_name", "client_group", "incorp_place", "incorp_place_others", 
@@ -1442,8 +1527,8 @@ if choice == "📊 Dashboard":
                     display_cols_ordered.append(c)
             
             dyn_cols = []
-            for y in active_years:
-                dyn_cols.extend([f"{y}_br_paid_by", f"{y}_br_date", f"{y}_afr_fee_by", f"{y}_afr_fee_date", f"{y}_ar_date", f"{y}_ar_cr_status", f"{y}_es_fee_by", f"{y}_es_fee_date", f"{y}_es_date"])
+            for y in disp_years:
+                dyn_cols.extend([f"{y}_br_paid_by", f"{y}_br_date", f"{y}_afr_fee_by", f"{y}_afr_fee_date", f"{y}_ar_date", f"{y}_ar_cr_status", f"{y}_es_fee_by", f"{y}_es_fee_date", f"{y}_es_date", f"{y}_es_status"])
             
             display_cols_ordered.extend(dyn_cols)
             display_cols_ordered.append("remark")
@@ -1465,7 +1550,7 @@ if choice == "📊 Dashboard":
                 df_display.rename(columns={'disp_br_no': 'BR No.'}, inplace=True, errors='ignore')
                 
                 dyn_rename_dict = {}
-                for y in active_years:
+                for y in disp_years:
                     dyn_rename_dict[f"{y}_br_paid_by"] = f"{y} Fee Paid By"
                     dyn_rename_dict[f"{y}_br_date"] = f"{y} Fee Paid Date"
                     dyn_rename_dict[f"{y}_afr_fee_by"] = f"{y} AR/AFR Fee Paid By"
@@ -1475,16 +1560,17 @@ if choice == "📊 Dashboard":
                     dyn_rename_dict[f"{y}_es_fee_by"] = f"{y} ES Fee Paid By"
                     dyn_rename_dict[f"{y}_es_fee_date"] = f"{y} ES Fee Paid Date"
                     dyn_rename_dict[f"{y}_es_date"] = f"{y} ES Filed Date"
+                    dyn_rename_dict[f"{y}_es_status"] = f"{y} ES Status"
                 df_display.rename(columns=dyn_rename_dict, inplace=True)
                 
-                df_display.insert(0, "Select", st.session_state.sel_v212)
+                df_display.insert(0, "Select", st.session_state.sel_v213)
                 
                 s = df_display["Company Name EN"].astype(str)
                 df_display.index = s + s.groupby(s).cumcount().map(lambda x: '\u200B' * x)
                 df_display.index.name = "Company Name EN"
                 df_display.drop(columns=["Company Name EN"], inplace=True)
                 
-                st.markdown(f"📈 Total: **{len(df_filtered)}** records in current view.")
+                st.markdown(f"📈 Total: **{len(df_filtered)}** records. Only showing columns for years: **{', '.join(map(str, disp_years))}**.")
                 
                 col_cfg = {
                     "Select": st.column_config.CheckboxColumn("Select", default=False),
@@ -1493,7 +1579,8 @@ if choice == "📊 Dashboard":
                 }
                 cr_opts = ["Pending", "Processing", "Returned", "Completed", "Exempt (Dormant)", "Included in Agent Fee"]
                 pay_opts = ["Firm", "Client", "N/A"]
-                for y in active_years:
+                es_opts = ["Pending", "Completed", "Exempt"]
+                for y in disp_years:
                     col_cfg[f"{y} Fee Paid By"] = st.column_config.SelectboxColumn(f"✏️ {y} Fee Paid By", options=pay_opts, required=True)
                     col_cfg[f"{y} Fee Paid Date"] = st.column_config.DateColumn(f"✏️ {y} Fee Paid Date", format="YYYY/MM/DD")
                     col_cfg[f"{y} AR/AFR Fee Paid By"] = st.column_config.SelectboxColumn(f"✏️ {y} AR/AFR Fee Paid By", options=pay_opts, required=True)
@@ -1503,18 +1590,19 @@ if choice == "📊 Dashboard":
                     col_cfg[f"{y} ES Fee Paid By"] = st.column_config.SelectboxColumn(f"✏️ {y} ES Fee Paid By", options=pay_opts, required=True)
                     col_cfg[f"{y} ES Fee Paid Date"] = st.column_config.DateColumn(f"✏️ {y} ES Fee Paid Date", format="YYYY/MM/DD")
                     col_cfg[f"{y} ES Filed Date"] = st.column_config.DateColumn(f"✏️ {y} ES Filed Date", format="YYYY/MM/DD")
+                    col_cfg[f"{y} ES Status"] = st.column_config.SelectboxColumn(f"✏️ {y} ES Status", options=es_opts, required=True)
                 
-                disabled_cols = [c for c in df_display.columns if c not in ["Select", "Remark"] and not any(c.endswith(suffix) for suffix in ["Fee Paid By", "Fee Paid Date", "AR/AFR Fee Paid By", "AR/AFR Fee Paid Date", "AR/AFR Filed Date", "AR/AFR Status", "ES Fee Paid By", "ES Fee Paid Date", "ES Filed Date"])]
+                disabled_cols = [c for c in df_display.columns if c not in ["Select", "Remark"] and not any(c.endswith(suffix) for suffix in ["Fee Paid By", "Fee Paid Date", "AR/AFR Fee Paid By", "AR/AFR Fee Paid Date", "AR/AFR Filed Date", "AR/AFR Status", "ES Fee Paid By", "ES Fee Paid Date", "ES Filed Date", "ES Status"])]
                 
                 edit_df = st.data_editor(
                     df_display, 
                     column_config=col_cfg,
                     disabled=disabled_cols,
                     use_container_width=True,
-                    key="dash_v212"
+                    key="dash_v213"
                 )
                 
-                if st.button("💾 Save Batch Edits", key="btn_save_grid_v212"):
+                if st.button("💾 Save Batch Edits", key="btn_save_grid_v213"):
                     try:
                         with engine.begin() as conn:
                             for c_name_idx, r in edit_df.iterrows():
@@ -1534,25 +1622,68 @@ if choice == "📊 Dashboard":
                                 is_bvi = str(row_info['incorp_place']) not in ['HK', ''] and str(row_info['is_hk_registered']).lower() not in ['true', 'yes', '1']
                                 b_mode = str(row_info.get('billing_mode', 'Itemized'))
                                 
+                                try: comp_dict_existing = json.loads(row_info.get('compliance_records', '{}'))
+                                except: comp_dict_existing = {}
+                                if not isinstance(comp_dict_existing, dict): comp_dict_existing = {}
+                                
                                 comp_dict = {}
+                                prev_br_by = 'Firm'
+                                prev_afr_fee_by = 'Firm'
+                                prev_es_fee_by = 'Firm'
+                                
                                 for y in active_years:
                                     y_str = str(y)
-                                    br_by = str(r.get(f'{y} Fee Paid By', 'Firm'))
+                                    
+                                    if y in disp_years:
+                                        raw_br_by = str(r.get(f'{y} Fee Paid By', '')).strip()
+                                        raw_afr = str(r.get(f'{y} AR/AFR Fee Paid By', '')).strip()
+                                        raw_es = str(r.get(f'{y} ES Fee Paid By', '')).strip()
+                                        
+                                        in_ar_cr = str(r.get(f'{y} AR/AFR Status', '')).strip()
+                                        in_es_st = str(r.get(f'{y} ES Status', '')).strip()
+                                        
+                                        br_date_val = r.get(f'{y} Fee Paid Date')
+                                        afr_fee_date_val = r.get(f'{y} AR/AFR Fee Paid Date')
+                                        ar_date_val = r.get(f'{y} AR/AFR Filed Date')
+                                        es_fee_date_val = r.get(f'{y} ES Fee Paid Date')
+                                        es_date_val = r.get(f'{y} ES Filed Date')
+                                    else:
+                                        db_y_data = comp_dict_existing.get(y_str, {})
+                                        raw_br_by = str(db_y_data.get('fee_by', db_y_data.get('br_paid_by', ''))).strip()
+                                        raw_afr = str(db_y_data.get('afr_fee_by', '')).strip()
+                                        raw_es = str(db_y_data.get('es_fee_by', '')).strip()
+                                        
+                                        in_ar_cr = str(db_y_data.get('ar_cr_status', 'Pending')).strip()
+                                        in_es_st = str(db_y_data.get('es_status', 'Pending')).strip()
+                                        
+                                        br_date_val = db_y_data.get('fee_date', db_y_data.get('br_date'))
+                                        afr_fee_date_val = db_y_data.get('afr_fee_date')
+                                        ar_date_val = db_y_data.get('ar_date')
+                                        es_fee_date_val = db_y_data.get('es_fee_date')
+                                        es_date_val = db_y_data.get('es_date')
+                                    
+                                    br_by = raw_br_by if raw_br_by else (prev_br_by if prev_br_by != 'N/A' else 'Firm')
+                                    
+                                    new_ar_cr = in_ar_cr if in_ar_cr in ["Pending", "Processing", "Returned", "Completed", "Exempt (Dormant)", "Included in Agent Fee"] else "Pending"
+                                    new_es_st = in_es_st if in_es_st in ["Pending", "Completed", "Exempt"] else "Pending"
                                     
                                     if is_bvi and 'All-in' in b_mode:
                                         afr_fee_by = br_by
-                                        raw_afr_fee = to_date(r.get(f'{y} Fee Paid Date'))
+                                        raw_afr_fee = to_date(br_date_val)
                                     else:
-                                        afr_fee_by = str(r.get(f'{y} AR/AFR Fee Paid By', 'N/A'))
-                                        raw_afr_fee = to_date(r.get(f'{y} AR/AFR Fee Paid Date'))
+                                        afr_fee_by = raw_afr if raw_afr else (prev_afr_fee_by if prev_afr_fee_by != 'N/A' else 'Firm')
+                                        raw_afr_fee = to_date(afr_fee_date_val)
                                         
-                                    ar_cr_status = str(r.get(f'{y} AR/AFR Status', 'Pending'))
-                                    es_fee_by = str(r.get(f'{y} ES Fee Paid By', 'N/A'))
+                                    es_fee_by = raw_es if raw_es else (prev_es_fee_by if prev_es_fee_by != 'N/A' else 'Firm')
                                     
-                                    raw_br = to_date(r.get(f'{y} Fee Paid Date'))
-                                    raw_ar = to_date(r.get(f'{y} AR/AFR Filed Date'))
-                                    raw_es_fee = to_date(r.get(f'{y} ES Fee Paid Date'))
-                                    raw_es = to_date(r.get(f'{y} ES Filed Date'))
+                                    prev_br_by = br_by
+                                    prev_afr_fee_by = afr_fee_by
+                                    prev_es_fee_by = es_fee_by
+                                    
+                                    raw_br = to_date(br_date_val)
+                                    raw_ar = to_date(ar_date_val)
+                                    raw_es_fee = to_date(es_fee_date_val)
+                                    raw_es = to_date(es_date_val)
                                     
                                     if inc_yr and y < inc_yr:
                                         br_by, afr_fee_by, es_fee_by = 'N/A', 'N/A', 'N/A'
@@ -1563,7 +1694,8 @@ if choice == "📊 Dashboard":
                                     if br_by == 'N/A': raw_br = None
                                     if afr_fee_by == 'N/A': raw_afr_fee = None
                                     if es_fee_by == 'N/A': raw_es_fee = None
-                                    if ar_cr_status in ['Exempt (Dormant)', 'Included in Agent Fee']: raw_ar = None
+                                    if new_ar_cr in ['Exempt (Dormant)', 'Included in Agent Fee']: raw_ar = None
+                                    if new_es_st == 'Exempt': raw_es = None
                                         
                                     comp_dict[y_str] = {
                                         "br_paid_by": br_by,
@@ -1571,10 +1703,11 @@ if choice == "📊 Dashboard":
                                         "afr_fee_by": afr_fee_by,
                                         "afr_fee_date": raw_afr_fee.strftime('%Y-%m-%d') if raw_afr_fee else None,
                                         "ar_date": raw_ar.strftime('%Y-%m-%d') if raw_ar else None,
-                                        "ar_cr_status": ar_cr_status,
+                                        "ar_cr_status": new_ar_cr,
                                         "es_fee_by": es_fee_by,
                                         "es_fee_date": raw_es_fee.strftime('%Y-%m-%d') if raw_es_fee else None,
-                                        "es_date": raw_es.strftime('%Y-%m-%d') if raw_es else None
+                                        "es_date": raw_es.strftime('%Y-%m-%d') if raw_es else None,
+                                        "es_status": new_es_st
                                     }
                                 json_str = json.dumps(comp_dict).replace("'", "''")
                                 rem_str = str(r.get('Remark', '')).replace("'", "''")
@@ -1666,8 +1799,8 @@ if choice == "📊 Dashboard":
                     st.write("---")
                     with st.popover("🧨 BATCH DELETE"):
                         st.error("🛑 DANGER ZONE")
-                        conf_b = st.text_input("Type DELETE", key="batch_del_v212")
-                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v212"):
+                        conf_b = st.text_input("Type DELETE", key="batch_del_v213")
+                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v213"):
                             df_raw[~mask].to_sql('companies', engine, if_exists='replace', index=False)
                             st.rerun()
             else:
@@ -1684,15 +1817,16 @@ if choice == "📊 Dashboard":
                 
                 df_alerts_filtered = df_alerts if filter_alert_g == "All Groups" else df_alerts[df_alerts['Client Group'] == filter_alert_g]
                 
-                if 'sel_alert_v212' not in st.session_state: st.session_state.sel_alert_v212 = False
-                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v212 = True; st.rerun()
-                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v212 = False; st.rerun()
+                if 'sel_alert_v213' not in st.session_state: st.session_state.sel_alert_v213 = False
+                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v213 = True; st.rerun()
+                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v213 = False; st.rerun()
                 
-                alert_cols_order = ["Company Name EN", "Company Name CH", "Business Name", "Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline", "Remark", "branch_code_raw"]
+                # V213: Restored Status columns in Outstanding List
+                alert_cols_order = ["Company Name EN", "Company Name CH", "Business Name", "Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "Fee Status", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "AR/AFR Status", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline", "ES Status", "Remark", "branch_code_raw"]
                 df_alerts_display = df_alerts_filtered[alert_cols_order].copy()
                 
                 if not df_alerts_display.empty:
-                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v212)
+                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v213)
                     
                     s2 = df_alerts_display["Company Name EN"].astype(str)
                     df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '\u200B' * x)
@@ -1709,7 +1843,7 @@ if choice == "📊 Dashboard":
                         }, 
                         use_container_width=True,
                         disabled=[c for c in df_alerts_display.columns if c != "Select"],
-                        key="alert_grid_v212"
+                        key="alert_grid_v213"
                     )
                     
                     selected_alerts = df_alerts_display[alert_edit["Select"] == True]
@@ -1807,9 +1941,9 @@ if choice == "📊 Dashboard":
             
             if ti5.button("🔄 Refresh", key="ref_inv"): st.rerun()
             
-            if 'sel_inv_v212' not in st.session_state: st.session_state.sel_inv_v212 = False
-            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v212 = True; st.rerun()
-            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v212 = False; st.rerun()
+            if 'sel_inv_v213' not in st.session_state: st.session_state.sel_inv_v213 = False
+            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v213 = True; st.rerun()
+            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v213 = False; st.rerun()
             
             inv_records = []
             for row in raw_dict_list:
@@ -1946,7 +2080,7 @@ if choice == "📊 Dashboard":
                 df_inv_display = df_inv[inv_cols_order].copy()
                 
                 if not df_inv_display.empty:
-                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v212)
+                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v213)
                     
                     s3 = df_inv_display["Company Name EN"].astype(str)
                     df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '\u200B' * x)
@@ -1963,7 +2097,7 @@ if choice == "📊 Dashboard":
                         }, 
                         use_container_width=True,
                         disabled=[c for c in df_inv_display.columns if c != "Select"],
-                        key="inv_grid_v212"
+                        key="inv_grid_v213"
                     )
                     
                     selected_inv = df_inv_display[inv_edit["Select"] == True]
@@ -2340,7 +2474,7 @@ elif choice == "🏢 Company Register":
                         st.markdown("##### 📄 3. Economic Substance (ES Filing)")
                         bvi_r3 = st.columns(3)
                         with bvi_r3[0]:
-                            es_fee_by = st.selectbox(f"ES Fee Paid By ({y})", pay_opts, index=(pay_opts.index(val_es_fee_by) if val_es_fee_by in pay_opts else 0), key=f"es_fee_by_{y}")
+                            es_fee_by = st.selectbox(f"ES Fee Paid By ({y})", pay_opts, index=(pay_opts.index(val_es_fee_by) if val_es_fee_by in pay_opts else 2), key=f"es_fee_by_{y}")
                             prev_es_fee_by = es_fee_by
                         with bvi_r3[1]:
                             if es_fee_by == "N/A":
@@ -2414,34 +2548,34 @@ elif choice == "🏢 Company Register":
         st.write("---"); st.header("📝 Compliance Filings (Local Company)")
         st.subheader("📑 Company Secretary Appointment (ND2A)")
         cc1, cc2, cc3, cc4 = st.columns([3, 3, 3, 1])
-        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v212", format="YYYY/MM/DD")
-        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v212", format="YYYY/MM/DD")
+        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v213", format="YYYY/MM/DD")
+        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v213", format="YYYY/MM/DD")
         with cc3:
             st.info("Statutory Period: 15 days")
             if n2e: n2_deadline = (n2e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n2_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v212")
+        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v213")
         
         st.subheader("📑 Company Secretary Resignation (ND4)")
         cc5, cc6, cc7, cc8 = st.columns([3, 3, 3, 1])
-        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v212", format="YYYY/MM/DD")
-        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v212", format="YYYY/MM/DD")
+        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v213", format="YYYY/MM/DD")
+        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v213", format="YYYY/MM/DD")
         with cc7:
             st.info("Statutory Period: 15 days")
             if n4e: n4_deadline = (n4e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n4_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v212")
+        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v213")
         
     elif is_hk_reg:
         st.write("---"); st.header("📝 Compliance Filings (Non-HK Company)")
         st.subheader("📑 Secretary & Director Changes (NN6)")
         c_nn1, c_nn2, c_nn3, c_nn4 = st.columns([3, 3, 3, 1])
-        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v212", format="YYYY/MM/DD")
-        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v212", format="YYYY/MM/DD")
+        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v213", format="YYYY/MM/DD")
+        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v213", format="YYYY/MM/DD")
         with c_nn3:
             st.info("Statutory Period: 1 Month")
             if nn6_e:
                 nn6_deadline = add_one_month(nn6_e)
                 st.markdown(f"**Deadline: :red[{nn6_deadline.strftime('%Y/%m/%d')}]**")
-        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v212")
+        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v213")
 
     st.write("---"); st.subheader("📍 Address & Contact")
     ca1, ca2 = st.columns(2)
@@ -2457,7 +2591,7 @@ elif choice == "🏢 Company Register":
     st.write("---"); st.subheader("📌 Remarks")
     remark_input = st.text_area("Remark", value=d['rem'], help="If filled, this remark will show up on reports and dashboards.")
     
-    row_v212 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'agent': agent_val, 'year_end': year_end_val, 'billing_mode': billing_val, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
+    row_v213 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'agent': agent_val, 'year_end': year_end_val, 'billing_mode': billing_val, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
     
     if mode == "✏️ Edit Existing" and target_name:
         st.write("---")
@@ -2505,7 +2639,7 @@ elif choice == "🏢 Company Register":
                 if not clean_bcode or clean_bcode == '000':
                     st.error("❌ Please enter a valid branch code (e.g. 001)")
                 else:
-                    new_br_row = row_v212.copy()
+                    new_br_row = row_v213.copy()
                     new_br_row['branch_code'] = clean_bcode
                     new_br_row['biz_name'] = new_bbiz.strip()
                     new_br_row['br_ref_date'] = new_br_ref
@@ -2536,18 +2670,18 @@ elif choice == "🏢 Company Register":
 
     st.write("---")
     if mode in ["🆕 Add New", "📋 Copy Existing"]:
-        if st.button("💾 Save To Cloud", key="btn_save_v212"):
+        if st.button("💾 Save To Cloud", key="btn_save_v213"):
             if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
             else:
                 try:
-                    pd.DataFrame([row_v212]).to_sql('companies', engine, if_exists='append', index=False)
+                    pd.DataFrame([row_v213]).to_sql('companies', engine, if_exists='append', index=False)
                     st.success("✅ Success!"); st.rerun()
                 except Exception as save_err:
                     st.error(f"❌ Save Failed! Error details: {save_err}")
     else:
         u_col, d_col = st.columns(2)
         with u_col.popover("🆙 Update"):
-            if st.button("Confirm Update (Sync Main & Branches)", key="btn_update_v212"):
+            if st.button("Confirm Update (Sync Main & Branches)", key="btn_update_v213"):
                 if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
                 else:
                     try:
@@ -2556,10 +2690,10 @@ elif choice == "🏢 Company Register":
                         
                         df_all = df_all[df_all['name_en'] != target_name]
                         
-                        insert_list = [row_v212]
+                        insert_list = [row_v213]
                         for br in existing_branches:
                             b_code = str(br.get('branch_code')).strip()
-                            br_updated = row_v212.copy()
+                            br_updated = row_v213.copy()
                             br_updated['branch_code'] = b_code
                             br_updated['biz_name'] = updated_branch_biz.get(b_code, br.get('biz_name'))
                             br_updated['br_ref_date'] = br.get('br_ref_date')
@@ -2575,32 +2709,32 @@ elif choice == "🏢 Company Register":
                         df_backup.to_sql('companies', engine, if_exists='replace', index=False)
                         st.error(f"🛑 SQL Error Detected! Rollback completed. Details: {trans_err}")
         with d_col.popover("🚨 DELETE"):
-            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v212")
-            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v212"):
+            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v213")
+            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v213"):
                 df_all = df_all[df_all['name_en'] != target_name]
                 df_all.to_sql('companies', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 7. Group Management ---
 elif choice == "⚙️ Group Management":
     st.header("⚙️ Group Management")
-    new_g = st.text_input("New Group Name", key="new_group_input_v212")
-    if st.button("Add Group", key="btn_add_group_v212"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
+    new_g = st.text_input("New Group Name", key="new_group_input_v213")
+    if st.button("Add Group", key="btn_add_group_v213"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
     st.write("---")
     g_df = pd.read_sql("SELECT * FROM client_groups", engine)
     if not g_df.empty:
         g_df = g_df.sort_values(by=['group_name'], na_position='last')
-        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v212")
+        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v213")
         c1, c2 = st.columns(2)
         with c1.popover("✏️ Rename Group"):
-            ren = st.text_input("New Name:", key="rename_input_v212")
-            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v212")
-            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v212"):
+            ren = st.text_input("New Name:", key="rename_input_v213")
+            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v213")
+            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v213"):
                 comp_df = pd.read_sql("SELECT * FROM companies", engine)
                 comp_df.loc[comp_df['client_group'] == target, 'client_group'] = ren
                 comp_df.to_sql('companies', engine, if_exists='replace', index=False)
                 g_df.replace({target: ren}).to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
         with c2.popover("🗑️ Delete Group"):
-            if st.button("Confirm Delete Group", key="btn_group_delete_v212"): 
+            if st.button("Confirm Delete Group", key="btn_group_delete_v213"): 
                 g_df[g_df['group_name'] != target].to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 8. Data Exchange ---
@@ -2743,11 +2877,11 @@ elif choice == "📤 Data Exchange":
     
     buf_e = io.BytesIO()
     df_export.to_excel(buf_e, index=False)
-    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name=f"Backup_{now_dx}.xlsx", key="btn_export_all_v212")
+    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name=f"Backup_{now_dx}.xlsx", key="btn_export_all_v213")
     
     st.write("---")
     
-    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v212")
+    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v213")
     if up:
         try:
             up_df = pd.read_excel(up, engine='openpyxl', keep_default_na=False)
@@ -2853,38 +2987,26 @@ elif choice == "📤 Data Exchange":
                             old_ar_dt = str(y_data.get('ar_date', ''))
                             if old_ar_dt in ['None', 'nan', '<NA>']: old_ar_dt = ''
                             
-                            base_dt = get_base_date(old_row)
-                            inc_yr = base_dt.year if base_dt else None
-                            
-                            if inc_yr and y < inc_yr:
-                                old_br_by = 'N/A'
-                                old_afr_fee_by = 'N/A'
-                                old_es_fee_by = 'N/A'
-                            else:
-                                raw_br = str(y_data.get('fee_by', y_data.get('br_paid_by', ''))).strip()
-                                old_br_by = raw_br if raw_br else (prev_br_by if prev_br_by != 'N/A' else 'Firm')
-                                
-                                raw_afr = str(y_data.get('afr_fee_by', '')).strip()
-                                old_afr_fee_by = raw_afr if raw_afr else (prev_afr_fee_by if prev_afr_fee_by != 'N/A' else 'Firm')
-                                
-                                raw_es = str(y_data.get('es_fee_by', '')).strip()
-                                old_es_fee_by = raw_es if raw_es else (prev_es_fee_by if prev_es_fee_by != 'N/A' else 'Firm')
-                            
-                            prev_br_by = old_br_by
-                            prev_afr_fee_by = old_afr_fee_by
-                            prev_es_fee_by = old_es_fee_by
-                            
-                            old_br_dt = str(y_data.get('fee_date', y_data.get('br_date', '')))
-                            if old_br_dt in ['None', 'nan', '<NA>']: old_br_dt = ''
-                            
+                            old_afr_fee_by = str(y_data.get('afr_fee_by', ''))
                             old_afr_fee_dt = str(y_data.get('afr_fee_date', ''))
                             if old_afr_fee_dt in ['None', 'nan', '<NA>']: old_afr_fee_dt = ''
                             
+                            old_es_fee_by = str(y_data.get('es_fee_by', ''))
                             old_es_fee_dt = str(y_data.get('es_fee_date', ''))
                             if old_es_fee_dt in ['None', 'nan', '<NA>']: old_es_fee_dt = ''
                             
                             old_es_dt = str(y_data.get('es_date', ''))
                             if old_es_dt in ['None', 'nan', '<NA>']: old_es_dt = ''
+                            
+                            base_dt = get_base_date(old_row)
+                            inc_yr = base_dt.year if base_dt else None
+                            
+                            if inc_yr and y < inc_yr: old_br_by = 'N/A'
+                            else: old_br_by = y_data.get('fee_by', y_data.get('br_paid_by', prev_br_by if prev_br_by != 'N/A' else 'Firm'))
+                            prev_br_by = old_br_by
+                            
+                            old_br_dt = str(y_data.get('fee_date', y_data.get('br_date', '')))
+                            if old_br_dt in ['None', 'nan', '<NA>']: old_br_dt = ''
                             
                             new_br_by = str(row_new.get(f'{y} Fee Paid By', row_new.get(f'{y} BR Paid By', ''))).strip()
                             if new_br_by == '': new_br_by = 'Firm'
@@ -2933,7 +3055,7 @@ elif choice == "📤 Data Exchange":
                     if diff_list: st.table(pd.DataFrame(diff_list))
                     else: st.info("No changes detected in the file. Click Sync to proceed anyway.")
                     
-                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v212"):
+                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v213"):
                         new_comp_records = []
                         for idx, row_new in up_df.iterrows():
                             base_dt = get_base_date(row_new)
@@ -2946,27 +3068,21 @@ elif choice == "📤 Data Exchange":
                             
                             for y in active_years:
                                 y_str = str(y)
+                                raw_br_by = str(row_new.get(f'{y} Fee Paid By', row_new.get(f'{y} BR Paid By', ''))).strip()
                                 
-                                if inc_yr and y < inc_yr:
-                                    br_by = 'N/A'
-                                    afr_fee_by = 'N/A'
-                                    es_fee_by = 'N/A'
-                                else:
-                                    raw_br_by = str(row_new.get(f'{y} Fee Paid By', row_new.get(f'{y} BR Paid By', ''))).strip()
-                                    br_by = raw_br_by if raw_br_by else (prev_br_by if prev_br_by != 'N/A' else 'Firm')
-                                    
-                                    raw_afr = str(row_new.get(f'{y} AR/AFR Fee Paid By', '')).strip()
-                                    afr_fee_by = raw_afr if raw_afr else (prev_afr_fee_by if prev_afr_fee_by != 'N/A' else 'Firm')
-                                    
-                                    raw_es = str(row_new.get(f'{y} ES Fee Paid By', '')).strip()
-                                    es_fee_by = raw_es if raw_es else (prev_es_fee_by if prev_es_fee_by != 'N/A' else 'Firm')
-                                    
+                                if inc_yr and y < inc_yr: br_by = 'N/A'
+                                elif inc_yr and y == inc_yr: br_by = raw_br_by if raw_br_by else 'Firm'
+                                else: br_by = raw_br_by if raw_br_by else (prev_br_by if prev_br_by != 'N/A' else 'Firm')
                                 prev_br_by = br_by
-                                prev_afr_fee_by = afr_fee_by
-                                prev_es_fee_by = es_fee_by
                                 
                                 new_ar_cr = str(row_new.get(f'{y} AR/AFR Status', row_new.get(f'{y} AR CR Status', ''))).strip()
                                 if new_ar_cr not in ["Pending", "Processing", "Returned", "Completed", "Exempt (Dormant)", "Included in Agent Fee"]: new_ar_cr = "Pending"
+                                
+                                afr_fee_by = str(row_new.get(f'{y} AR/AFR Fee Paid By', '')).strip()
+                                if afr_fee_by == '': afr_fee_by = 'N/A'
+                                
+                                es_fee_by = str(row_new.get(f'{y} ES Fee Paid By', '')).strip()
+                                if es_fee_by == '': es_fee_by = 'N/A'
                                 
                                 br_date_val = row_new.get(f'{y} Fee Paid Date', row_new.get(f'{y} BR Paid Date', row_new.get(f'{y} BR Date')))
                                 afr_fee_date_val = row_new.get(f'{y} AR/AFR Fee Paid Date', '')
