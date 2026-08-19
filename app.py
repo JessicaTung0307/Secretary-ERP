@@ -134,18 +134,18 @@ TEMPLATE_COLS = [
 ]
 
 EXCHANGE_COL_MAPPING = {
-    'client_group': 'Client Group', 'name_en': 'Company Name EN', 'name_ch': 'Company Name CH', 
-    'biz_name': 'Business Name', 'incorp_place': 'Incorp Place', 'incorp_place_others': 'Incorp Place Others', 
-    'incorp_date': 'Incorp Date', 'ci_no': 'CI No.', 'is_hk_registered': 'Non-HK Registered in HK', 
-    'hk_incorp_date': 'HK Incorp Date', 'hk_ci_no': 'HK CI No.', 'br_no': 'BR No.', 
-    'branch_code': 'Branch Code', 'co_type': 'Company Type', 'reg_addr': 'Registered Address', 
-    'corres_addr': 'Correspondence Address', 'round_loc': 'Round Stamp', 'sign_loc': 'Signature Chop', 
-    'seal_loc': 'Common Seal', 'br_ref_date': 'BR Ref Date', 'ar_ref_date': 'AR Ref Date', 
-    'cessation_date': 'Cessation Date', 'agent': 'Registered Agent', 'year_end': 'Financial Year End', 'billing_mode': 'Billing Mode',
-    'nd2a_eff_date': 'ND2A Eff Date', 'nd2a_file_date': 'ND2A File Date', 
-    'nd2a_download': 'ND2A Download', 'nd4_eff_date': 'ND4 Eff Date', 'nd4_file_date': 'ND4 File Date', 
-    'nd4_download': 'ND4 Download', 'nn6_eff_date': 'NN6 Eff Date', 'nn6_file_date': 'NN6 File Date', 
-    'nn6_download': 'NN6 Download', 'dissolution_date': 'Dissolution Date', 'remark': 'Remark'
+    "client_group": "Client Group", "name_en": "Company Name EN", "name_ch": "Company Name CH", 
+    "biz_name": "Business Name", "incorp_place": "Incorp Place", "incorp_place_others": "Incorp Place Others", 
+    "incorp_date": "Incorp Date", "ci_no": "CI No.", "is_hk_registered": "Non-HK Registered in HK", 
+    "hk_incorp_date": "HK Incorp Date", "hk_ci_no": "HK CI No.", "br_no": "BR No.", 
+    "branch_code": "Branch Code", "co_type": "Company Type", "reg_addr": "Registered Address", 
+    "corres_addr": "Correspondence Address", "round_loc": "Round Stamp", "sign_loc": "Signature Chop", 
+    "seal_loc": "Common Seal", "br_ref_date": "BR Ref Date", "ar_ref_date": "AR Ref Date", 
+    "cessation_date": "Cessation Date", "agent": "Registered Agent", "year_end": "Financial Year End", "billing_mode": "Billing Mode",
+    "nd2a_eff_date": "ND2A Eff Date", "nd2a_file_date": "ND2A File Date", 
+    "nd2a_download": "ND2A Download", "nd4_eff_date": "ND4 Eff Date", "nd4_file_date": "ND4 File Date", 
+    "nd4_download": "ND4 Download", "nn6_eff_date": "NN6 Eff Date", "nn6_file_date": "NN6 File Date", 
+    "nn6_download": "NN6 Download", "dissolution_date": "Dissolution Date", "remark": "Remark"
 }
 REVERSE_EXCHANGE_MAPPING = {v: k for k, v in EXCHANGE_COL_MAPPING.items()}
 REVERSE_EXCHANGE_MAPPING['Business Name (業務名稱)'] = 'biz_name'
@@ -159,6 +159,7 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
     def fmt_date(val):
         d = to_date(val)
         return d.strftime('%Y/%m/%d') if d else "N/A"
+    
     if selected_df.empty: return b""
     sort_cols = [c for c in ['client_group', 'name_en', 'branch_code', 'incorp_place'] if c in selected_df.columns]
     selected_df = selected_df.sort_values(by=sort_cols, na_position='last')
@@ -186,6 +187,7 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
     </head>
     <body>
     """
+
     cg_row_html = "" if hide_client_group else "<tr><th>Client Group</th><td>__CLIENT_GROUP__</td></tr>"
     docs = []
     companies_with_branches = set(selected_df[selected_df['branch_code'] != '000']['name_en'])
@@ -195,21 +197,21 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
         if not ch_name or pd.isna(ch_name): ch_name = ''
         biz_name = str(row.get('biz_name', '')).strip()
         biz_html = f'<div class="name-ch" style="font-size: 11.5pt; color: #7f8c8d; font-weight: normal; margin-top: 4px;">Business Name: {biz_name}</div>' if biz_name and biz_name not in ['None', 'nan'] else ''
-        
         place = str(row.get('incorp_place', ''))
         is_hk_reg = str(row.get('is_hk_registered', 'False')).strip().lower() in ['true', 'yes', '1']
         is_bvi = place not in ['HK', ''] and not is_hk_reg
         base_date = get_base_date(row)
         incorp_year = base_date.year if base_date else None
-        
         branch = str(row.get('branch_code', '000')).strip()
         if branch in ['None', 'nan', '', '<NA>']: branch = '000'
         is_branch = branch != '000'
         has_branch = row.get('name_en') in companies_with_branches
         disp_en = str(row.get('name_en', ''))
+            
         dynamic_place_rows = ""
         display_place = place
         if place == 'Others': display_place = f"Others ({str(row.get('incorp_place_others', ''))})"
+            
         dynamic_place_rows += f"<tr><th>{place} Incorp Date</th><td>{fmt_date(row.get('incorp_date'))}</td></tr>"
         dynamic_place_rows += f"<tr><th>{place} CI No.</th><td>{str(row.get('ci_no', ''))}</td></tr>"
 
@@ -1165,7 +1167,7 @@ if choice == "📊 Dashboard":
                 df_display.rename(columns=dyn_rename_dict, inplace=True)
                 df_display.insert(0, "Select", st.session_state.sel_v127)
                 s = df_display["Company Name EN"].astype(str)
-                df_display.index = s + s.groupby(s).cumcount().map(lambda x: '\u200B' * x)
+                df_display.index = s + s.groupby(s).cumcount().map(lambda x: '​' * x)
                 df_display.index.name = "Company Name EN"
                 df_display.drop(columns=["Company Name EN"], inplace=True)
                 
@@ -1194,7 +1196,7 @@ if choice == "📊 Dashboard":
                     try:
                         with engine.begin() as conn:
                             for c_name_idx, r in edit_df.iterrows():
-                                c_n = str(c_name_idx).replace('\u200B', '')
+                                c_n = str(c_name_idx).replace('​', '')
                                 b_code = str(r['Branch Code'])
                                 suffix = f" (-{b_code})"
                                 if c_n.endswith(suffix): c_n = c_n[:-len(suffix)]
@@ -1282,14 +1284,14 @@ if choice == "📊 Dashboard":
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Batch save failed: {e}")
-
-selected = edit_df[edit_df["Select"] == True]
+                
+                selected = edit_df[edit_df["Select"] == True]
                 if len(selected) > 0:
                     st.info(f"✅ **{len(selected)}** records selected for action.")
                     
                     selected_tuples = []
                     for c_n_idx, r in selected.iterrows():
-                        c_n = str(c_n_idx).replace('\u200B', '')
+                        c_n = str(c_n_idx).replace('​', '')
                         b_code = str(r['Branch Code'])
                         suffix = f" (-{b_code})"
                         if c_n.endswith(suffix):
@@ -1391,7 +1393,7 @@ selected = edit_df[edit_df["Select"] == True]
                     df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v127)
                     
                     s2 = df_alerts_display["Company Name EN"].astype(str)
-                    df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '\u200B' * x)
+                    df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '​' * x)
                     df_alerts_display.index.name = "Company Name EN"
                     df_alerts_display.drop(columns=["Company Name EN"], inplace=True)
                     
@@ -1411,7 +1413,7 @@ selected = edit_df[edit_df["Select"] == True]
                     selected_alerts = df_alerts_display[alert_edit["Select"] == True]
                     sel_alert_tuples = []
                     for c_n_idx, r in selected_alerts.iterrows():
-                        c_n = str(c_n_idx).replace('\u200B', '')
+                        c_n = str(c_n_idx).replace('​', '')
                         sel_alert_tuples.append((c_n, r['branch_code_raw']))
                         
                     def match_alert_selected(r):
@@ -1644,7 +1646,7 @@ selected = edit_df[edit_df["Select"] == True]
                     df_inv_display.insert(0, "Select", st.session_state.sel_inv_v127)
                     
                     s3 = df_inv_display["Company Name EN"].astype(str)
-                    df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '\u200B' * x)
+                    df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '​' * x)
                     df_inv_display.index.name = "Company Name EN"
                     df_inv_display.drop(columns=["Company Name EN"], inplace=True)
                     
@@ -1664,7 +1666,7 @@ selected = edit_df[edit_df["Select"] == True]
                     selected_inv = df_inv_display[inv_edit["Select"] == True]
                     sel_inv_tuples = []
                     for c_n_idx, r in selected_inv.iterrows():
-                        c_n = str(c_n_idx).replace('\u200B', '')
+                        c_n = str(c_n_idx).replace('​', '')
                         sel_inv_tuples.append((c_n, r['branch_code_raw']))
                         
                     def match_inv_selected(r):
@@ -1893,7 +1895,6 @@ elif choice == "🏢 Company Register":
         incorp_year = base.year if base else None
         
         if base:
-            # Phase 1: Pre-calculate UI state and Deadlines
             tasks = []
             ui_state = {}
             prev_br = 'Firm'; prev_afr = 'Firm'; prev_es = 'Firm'
@@ -1940,7 +1941,6 @@ elif choice == "🏢 Company Register":
                 tasks.append({'type': 'AR', 'fy': y, 'dy': ar_dy, 'dl': ar_dl})
                 if is_bvi: tasks.append({'type': 'ES', 'fy': y, 'dy': es_dy, 'dl': es_dl})
 
-            # Phase 2: Render Tabs grouped by Deadline Year
             for y in active_years: updated_comp_json[str(y)] = {}
             pay_opts = ["Firm", "Client", "N/A"]
             
