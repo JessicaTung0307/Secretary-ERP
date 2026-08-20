@@ -111,8 +111,8 @@ active_years = list(range(2025, current_system_year + 5))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V126", layout="wide")
-choice = st.sidebar.radio("Navigation (V126)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V125", layout="wide")
+choice = st.sidebar.radio("Navigation (V125)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -1517,9 +1517,9 @@ if choice == "📊 Dashboard":
             target_year_disp = t2.selectbox("📅 Display Target Year", active_years, index=active_years.index(current_system_year))
             
             if t3.button("🔄 Refresh"): st.rerun()
-            if 'sel_v126' not in st.session_state: st.session_state.sel_v126 = False
-            if t4.button("✅ Select All"): st.session_state.sel_v126 = True; st.rerun()
-            if t5.button("🧹 Clear All"): st.session_state.sel_v126 = False; st.rerun()
+            if 'sel_v125' not in st.session_state: st.session_state.sel_v125 = False
+            if t4.button("✅ Select All"): st.session_state.sel_v125 = True; st.rerun()
+            if t5.button("🧹 Clear All"): st.session_state.sel_v125 = False; st.rerun()
             
             disp_years = [y for y in active_years if target_year_disp - 1 <= y <= target_year_disp + 1]
             
@@ -1573,7 +1573,7 @@ if choice == "📊 Dashboard":
                     dyn_rename_dict[f"{y}_es_status"] = f"{y} ES Status"
                 df_display.rename(columns=dyn_rename_dict, inplace=True)
                 
-                df_display.insert(0, "Select", st.session_state.sel_v126)
+                df_display.insert(0, "Select", st.session_state.sel_v125)
                 
                 s = df_display["Company Name EN"].astype(str)
                 df_display.index = s + s.groupby(s).cumcount().map(lambda x: '\u200B' * x)
@@ -1609,10 +1609,10 @@ if choice == "📊 Dashboard":
                     column_config=col_cfg,
                     disabled=disabled_cols,
                     use_container_width=True,
-                    key="dash_v126"
+                    key="dash_v125"
                 )
                 
-                if st.button("💾 Save Batch Edits", key="btn_save_grid_v126"):
+                if st.button("💾 Save Batch Edits", key="btn_save_grid_v125"):
                     try:
                         with engine.begin() as conn:
                             for c_name_idx, r in edit_df.iterrows():
@@ -1644,7 +1644,6 @@ if choice == "📊 Dashboard":
                                 for y in active_years:
                                     y_str = str(y)
                                     
-                                    # V126: Robust Extraction logic covering both UI fields and DB legacy fields
                                     if y in disp_years:
                                         raw_br_by = str(r.get(f'{y} Fee Paid By', '')).strip()
                                         raw_afr = str(r.get(f'{y} AR/AFR Fee Paid By', '')).strip()
@@ -1687,7 +1686,6 @@ if choice == "📊 Dashboard":
                                         
                                     es_fee_by = raw_es if raw_es else (prev_es_fee_by if prev_es_fee_by != 'N/A' else 'Firm')
                                     
-                                    # V126: Mandatory HK Data Sanitization
                                     if not is_bvi:
                                         afr_fee_by = 'N/A'
                                         es_fee_by = 'N/A'
@@ -1702,18 +1700,12 @@ if choice == "📊 Dashboard":
                                     
                                     raw_br = to_date(br_date_val)
                                     raw_ar = to_date(ar_date_val)
-                                    raw_es_fee = to_date(es_fee_date_val)
-                                    raw_es = to_date(es_date_val)
                                     
                                     if inc_yr and y < inc_yr:
                                         br_by, afr_fee_by, es_fee_by = 'N/A', 'N/A', 'N/A'
                                         raw_br, raw_afr_fee, raw_ar, raw_es_fee, raw_es = None, None, None, None, None
-                                        new_ar_cr = "Pending"
-                                        new_es_st = "Pending" if is_bvi else "N/A"
                                     elif inc_yr and y == inc_yr:
                                         raw_ar, raw_es = None, None
-                                        new_ar_cr = "Pending"
-                                        new_es_st = "Pending" if is_bvi else "N/A"
                                         
                                     if br_by == 'N/A': raw_br = None
                                     if afr_fee_by == 'N/A': raw_afr_fee = None
@@ -1823,8 +1815,8 @@ if choice == "📊 Dashboard":
                     st.write("---")
                     with st.popover("🧨 BATCH DELETE"):
                         st.error("🛑 DANGER ZONE")
-                        conf_b = st.text_input("Type DELETE", key="batch_del_v126")
-                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v126"):
+                        conf_b = st.text_input("Type DELETE", key="batch_del_v125")
+                        if st.button("Confirm Batch Delete", disabled=(conf_b != "DELETE"), key="btn_batch_del_v125"):
                             df_raw[~mask].to_sql('companies', engine, if_exists='replace', index=False)
                             st.rerun()
             else:
@@ -1841,15 +1833,15 @@ if choice == "📊 Dashboard":
                 
                 df_alerts_filtered = df_alerts if filter_alert_g == "All Groups" else df_alerts[df_alerts['Client Group'] == filter_alert_g]
                 
-                if 'sel_alert_v126' not in st.session_state: st.session_state.sel_alert_v126 = False
-                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v126 = True; st.rerun()
-                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v126 = False; st.rerun()
+                if 'sel_alert_v125' not in st.session_state: st.session_state.sel_alert_v125 = False
+                if ta3.button("✅ Select All", key="sel_all_alert"): st.session_state.sel_alert_v125 = True; st.rerun()
+                if ta4.button("🧹 Clear All", key="clr_all_alert"): st.session_state.sel_alert_v125 = False; st.rerun()
                 
                 alert_cols_order = ["Company Name EN", "Company Name CH", "Business Name", "Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "BR No.", "Fee Paid By", "Fee Paid Date", "Fee Deadline", "Fee Status", "AR/AFR Fee By", "AR/AFR Fee Date", "AR/AFR Filed Date", "AR/AFR Deadline", "AR/AFR Status", "ES Fee By", "ES Fee Date", "ES Filed Date", "ES Deadline", "ES Status", "Remark", "branch_code_raw"]
                 df_alerts_display = df_alerts_filtered[alert_cols_order].copy()
                 
                 if not df_alerts_display.empty:
-                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v126)
+                    df_alerts_display.insert(0, "Select", st.session_state.sel_alert_v125)
                     
                     s2 = df_alerts_display["Company Name EN"].astype(str)
                     df_alerts_display.index = s2 + s2.groupby(s2).cumcount().map(lambda x: '\u200B' * x)
@@ -1866,7 +1858,7 @@ if choice == "📊 Dashboard":
                         }, 
                         use_container_width=True,
                         disabled=[c for c in df_alerts_display.columns if c != "Select"],
-                        key="alert_grid_v126"
+                        key="alert_grid_v125"
                     )
                     
                     selected_alerts = df_alerts_display[alert_edit["Select"] == True]
@@ -1964,9 +1956,9 @@ if choice == "📊 Dashboard":
             
             if ti5.button("🔄 Refresh", key="ref_inv"): st.rerun()
             
-            if 'sel_inv_v126' not in st.session_state: st.session_state.sel_inv_v126 = False
-            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v126 = True; st.rerun()
-            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v126 = False; st.rerun()
+            if 'sel_inv_v125' not in st.session_state: st.session_state.sel_inv_v125 = False
+            if ti6.button("✅ Select All", key="sel_all_inv"): st.session_state.sel_inv_v125 = True; st.rerun()
+            if ti7.button("🧹 Clear All", key="clr_all_inv"): st.session_state.sel_inv_v125 = False; st.rerun()
             
             inv_records = []
             for row in raw_dict_list:
@@ -2102,7 +2094,7 @@ if choice == "📊 Dashboard":
                 df_inv_display = df_inv[inv_cols_order].copy()
                 
                 if not df_inv_display.empty:
-                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v126)
+                    df_inv_display.insert(0, "Select", st.session_state.sel_inv_v125)
                     
                     s3 = df_inv_display["Company Name EN"].astype(str)
                     df_inv_display.index = s3 + s3.groupby(s3).cumcount().map(lambda x: '\u200B' * x)
@@ -2119,7 +2111,7 @@ if choice == "📊 Dashboard":
                         }, 
                         use_container_width=True,
                         disabled=[c for c in df_inv_display.columns if c != "Select"],
-                        key="inv_grid_v126"
+                        key="inv_grid_v125"
                     )
                     
                     selected_inv = df_inv_display[inv_edit["Select"] == True]
@@ -2570,34 +2562,34 @@ elif choice == "🏢 Company Register":
         st.write("---"); st.header("📝 Compliance Filings (Local Company)")
         st.subheader("📑 Company Secretary Appointment (ND2A)")
         cc1, cc2, cc3, cc4 = st.columns([3, 3, 3, 1])
-        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v126", format="YYYY/MM/DD")
-        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v126", format="YYYY/MM/DD")
+        with cc1: n2e = st.date_input("Effective Date (Appt)", value=to_date(d['n2e']), min_value=MIN_DATE, key="n2e_v125", format="YYYY/MM/DD")
+        with cc2: n2f = st.date_input("Filing Date (ND2A)", value=to_date(d['n2f']), min_value=MIN_DATE, key="n2f_v125", format="YYYY/MM/DD")
         with cc3:
             st.info("Statutory Period: 15 days")
             if n2e: n2_deadline = (n2e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n2_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v126")
+        with cc4: n2d = st.checkbox("Downloaded", value=d['n2d'], key="n2d_v125")
         
         st.subheader("📑 Company Secretary Resignation (ND4)")
         cc5, cc6, cc7, cc8 = st.columns([3, 3, 3, 1])
-        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v126", format="YYYY/MM/DD")
-        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v126", format="YYYY/MM/DD")
+        with cc5: n4e = st.date_input("Effective Date (Resign)", value=to_date(d['n4e']), min_value=MIN_DATE, key="n4e_v125", format="YYYY/MM/DD")
+        with cc6: n4f = st.date_input("Filing Date (ND4)", value=to_date(d['n4f']), min_value=MIN_DATE, key="n4f_v125", format="YYYY/MM/DD")
         with cc7:
             st.info("Statutory Period: 15 days")
             if n4e: n4_deadline = (n4e + timedelta(days=15)); st.markdown(f"**Deadline: :red[{n4_deadline.strftime('%Y/%m/%d')}]**") 
-        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v126")
+        with cc8: n4d = st.checkbox("Downloaded", value=d['n4d'], key="n4d_v125")
         
     elif is_hk_reg:
         st.write("---"); st.header("📝 Compliance Filings (Non-HK Company)")
         st.subheader("📑 Secretary & Director Changes (NN6)")
         c_nn1, c_nn2, c_nn3, c_nn4 = st.columns([3, 3, 3, 1])
-        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v126", format="YYYY/MM/DD")
-        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v126", format="YYYY/MM/DD")
+        with c_nn1: nn6_e = st.date_input("Effective Date", value=to_date(d['nn6_e']), min_value=MIN_DATE, key="nn6_e_v125", format="YYYY/MM/DD")
+        with c_nn2: nn6_f = st.date_input("Filing Date (NN6)", value=to_date(d['nn6_f']), min_value=MIN_DATE, key="nn6_f_v125", format="YYYY/MM/DD")
         with c_nn3:
             st.info("Statutory Period: 1 Month")
             if nn6_e:
                 nn6_deadline = add_one_month(nn6_e)
                 st.markdown(f"**Deadline: :red[{nn6_deadline.strftime('%Y/%m/%d')}]**")
-        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v126")
+        with c_nn4: nn6_d = st.checkbox("Downloaded", value=d['nn6_d'], key="nn6_d_v125")
 
     st.write("---"); st.subheader("📍 Address & Contact")
     ca1, ca2 = st.columns(2)
@@ -2613,7 +2605,7 @@ elif choice == "🏢 Company Register":
     st.write("---"); st.subheader("📌 Remarks")
     remark_input = st.text_area("Remark", value=d['rem'], help="If filled, this remark will show up on reports and dashboards.")
     
-    row_v126 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'agent': agent_val, 'year_end': year_end_val, 'billing_mode': billing_val, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
+    row_v125 = {'client_group': client_group, 'name_en': name_en, 'name_ch': name_ch, 'biz_name': biz_name, 'branch_code': '000', 'br_ref_date': br_ref_date, 'ar_ref_date': ar_ref_date, 'cessation_date': None, 'incorp_place': inc_place, 'incorp_place_others': place_others, 'incorp_date': inc_date, 'ci_no': ci_no, 'is_hk_registered': is_hk_reg, 'hk_incorp_date': hk_idate, 'hk_ci_no': hk_ci, 'br_no': br_no, 'co_type': co_type, 'reg_addr': reg_addr, 'corres_addr': corres_addr, 'round_loc': round_l, 'sign_loc': sign_l, 'seal_loc': common_l, 'agent': agent_val, 'year_end': year_end_val, 'billing_mode': billing_val, 'nd2a_eff_date': n2e, 'nd2a_file_date': n2f, 'nd2a_download': n2d, 'nd4_eff_date': n4e, 'nd4_file_date': n4f, 'nd4_download': n4d, 'nn6_eff_date': nn6_e, 'nn6_file_date': nn6_f, 'nn6_download': nn6_d, 'dissolution_date': dis_date, 'remark': remark_input, 'compliance_records': json.dumps(updated_comp_json)}
     
     if mode == "✏️ Edit Existing" and target_name:
         st.write("---")
@@ -2661,7 +2653,7 @@ elif choice == "🏢 Company Register":
                 if not clean_bcode or clean_bcode == '000':
                     st.error("❌ Please enter a valid branch code (e.g. 001)")
                 else:
-                    new_br_row = row_v126.copy()
+                    new_br_row = row_v125.copy()
                     new_br_row['branch_code'] = clean_bcode
                     new_br_row['biz_name'] = new_bbiz.strip()
                     new_br_row['br_ref_date'] = new_br_ref
@@ -2692,18 +2684,18 @@ elif choice == "🏢 Company Register":
 
     st.write("---")
     if mode in ["🆕 Add New", "📋 Copy Existing"]:
-        if st.button("💾 Save To Cloud", key="btn_save_v126"):
+        if st.button("💾 Save To Cloud", key="btn_save_v125"):
             if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
             else:
                 try:
-                    pd.DataFrame([row_v126]).to_sql('companies', engine, if_exists='append', index=False)
+                    pd.DataFrame([row_v125]).to_sql('companies', engine, if_exists='append', index=False)
                     st.success("✅ Success!"); st.rerun()
                 except Exception as save_err:
                     st.error(f"❌ Save Failed! Error details: {save_err}")
     else:
         u_col, d_col = st.columns(2)
         with u_col.popover("🆙 Update"):
-            if st.button("Confirm Update (Sync Main & Branches)", key="btn_update_v126"):
+            if st.button("Confirm Update (Sync Main & Branches)", key="btn_update_v125"):
                 if missing: st.error(f"❌ Missing mandatory fields: {', '.join(missing)}")
                 else:
                     try:
@@ -2712,10 +2704,10 @@ elif choice == "🏢 Company Register":
                         
                         df_all = df_all[df_all['name_en'] != target_name]
                         
-                        insert_list = [row_v126]
+                        insert_list = [row_v125]
                         for br in existing_branches:
                             b_code = str(br.get('branch_code')).strip()
-                            br_updated = row_v126.copy()
+                            br_updated = row_v125.copy()
                             br_updated['branch_code'] = b_code
                             br_updated['biz_name'] = updated_branch_biz.get(b_code, br.get('biz_name'))
                             br_updated['br_ref_date'] = br.get('br_ref_date')
@@ -2731,32 +2723,32 @@ elif choice == "🏢 Company Register":
                         df_backup.to_sql('companies', engine, if_exists='replace', index=False)
                         st.error(f"🛑 SQL Error Detected! Rollback completed. Details: {trans_err}")
         with d_col.popover("🚨 DELETE"):
-            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v126")
-            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v126"):
+            st.error(f"Delete {target_name} and ALL its branches?"); conf_s = st.text_input("Type DELETE", key="single_del_v125")
+            if st.button("Confirm Delete Record", disabled=(conf_s != "DELETE"), key="btn_del_single_v125"):
                 df_all = df_all[df_all['name_en'] != target_name]
                 df_all.to_sql('companies', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 7. Group Management ---
 elif choice == "⚙️ Group Management":
     st.header("⚙️ Group Management")
-    new_g = st.text_input("New Group Name", key="new_group_input_v126")
-    if st.button("Add Group", key="btn_add_group_v126"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
+    new_g = st.text_input("New Group Name", key="new_group_input_v125")
+    if st.button("Add Group", key="btn_add_group_v125"): pd.DataFrame([{'group_name': new_g}]).to_sql('client_groups', engine, if_exists='append', index=False); st.rerun()
     st.write("---")
     g_df = pd.read_sql("SELECT * FROM client_groups", engine)
     if not g_df.empty:
         g_df = g_df.sort_values(by=['group_name'], na_position='last')
-        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v126")
+        target = st.selectbox("Select Group", g_df['group_name'].tolist(), key="select_group_manage_v125")
         c1, c2 = st.columns(2)
         with c1.popover("✏️ Rename Group"):
-            ren = st.text_input("New Name:", key="rename_input_v126")
-            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v126")
-            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v126"):
+            ren = st.text_input("New Name:", key="rename_input_v125")
+            conf_r = st.text_input("Type RENAME", key="rename_confirm_text_v125")
+            if st.button("Confirm Rename", disabled=(conf_r != "RENAME"), key="btn_group_rename_v125"):
                 comp_df = pd.read_sql("SELECT * FROM companies", engine)
                 comp_df.loc[comp_df['client_group'] == target, 'client_group'] = ren
                 comp_df.to_sql('companies', engine, if_exists='replace', index=False)
                 g_df.replace({target: ren}).to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
         with c2.popover("🗑️ Delete Group"):
-            if st.button("Confirm Delete Group", key="btn_group_delete_v126"): 
+            if st.button("Confirm Delete Group", key="btn_group_delete_v125"): 
                 g_df[g_df['group_name'] != target].to_sql('client_groups', engine, if_exists='replace', index=False); st.rerun()
 
 # --- 8. Data Exchange ---
@@ -2911,11 +2903,11 @@ elif choice == "📤 Data Exchange":
     
     buf_e = io.BytesIO()
     df_export.to_excel(buf_e, index=False)
-    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name=f"Backup_{now_dx}.xlsx", key="btn_export_all_v126")
+    c2.download_button(label="📦 Export All", data=buf_e.getvalue(), file_name=f"Backup_{now_dx}.xlsx", key="btn_export_all_v125")
     
     st.write("---")
     
-    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v126")
+    up = st.file_uploader("Upload XLSX to Review Changes", type=["xlsx"], key="file_uploader_v125")
     if up:
         try:
             up_df = pd.read_excel(up, engine='openpyxl', keep_default_na=False)
@@ -3057,13 +3049,10 @@ elif choice == "📤 Data Exchange":
                                 
                                 old_es_dt = str(y_data.get('es_date', ''))
                                 if old_es_dt in ['None', 'nan', '<NA>']: old_es_dt = ''
-                                
-                                old_es_st = str(y_data.get('es_status', 'Pending')).strip()
                             else:
                                 old_afr_fee_dt = ''
                                 old_es_fee_dt = ''
                                 old_es_dt = ''
-                                old_es_st = 'N/A'
                             
                             new_br_by = str(row_new.get(f'{y} Fee Paid By', row_new.get(f'{y} BR Paid By', ''))).strip()
                             if new_br_by == '': new_br_by = 'Firm'
@@ -3101,7 +3090,7 @@ elif choice == "📤 Data Exchange":
                             if old_ar_dt != new_ar_dt: diff_list.append({"Company": disp_name, "Field": f"{y} AR/AFR Filed Date", "Old Value": old_ar_dt.replace('-','/') if old_ar_dt else '', "New Value": new_ar_dt.replace('-','/') if new_ar_dt else ''})
                             if old_ar_cr != new_ar_cr: diff_list.append({"Company": disp_name, "Field": f"{y} AR/AFR Status", "Old Value": old_ar_cr, "New Value": new_ar_cr})
                             if old_es_fee_by != new_es_fee_by: diff_list.append({"Company": disp_name, "Field": f"{y} ES Fee Paid By", "Old Value": old_es_fee_by, "New Value": new_es_fee_by})
-                            if old_es_fee_dt != new_es_fee_dt: diff_list.append({"Company": disp_name, "Field": f"{y} ES Fee Paid Date", "Old Value": old_es_fee_dt.replace('-','/') if old_es_fee_dt else '', "New Value": new_es_fee_dt.replace('-','/') if new_es_fee_dt else ''})
+                            if old_es_fee_dt != new_es_fee_dt: diff_list.append({"Company": disp_name, "Field": f"{y} ES Fee Paid Date", "Old Value": old_es_fee_dt.replace('-','/') if old_es_fee_dt else '', "New Value": new_es_fee_dt.replace('-','/') if new_es_dt else ''})
                             if old_es_dt != new_es_dt: diff_list.append({"Company": disp_name, "Field": f"{y} ES Filed Date", "Old Value": old_es_dt.replace('-','/') if old_es_dt else '', "New Value": new_es_dt.replace('-','/') if new_es_dt else ''})
                             
                     else:
@@ -3112,7 +3101,7 @@ elif choice == "📤 Data Exchange":
                     if diff_list: st.table(pd.DataFrame(diff_list))
                     else: st.info("No changes detected in the file. Click Sync to proceed anyway.")
                     
-                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v126"):
+                    if st.button("🚀 Confirm & Apply Changes", key="btn_final_sync_v125"):
                         new_comp_records = []
                         for idx, row_new in up_df.iterrows():
                             base_dt = get_base_date(row_new)
@@ -3145,10 +3134,6 @@ elif choice == "📤 Data Exchange":
                                 es_fee_by = str(row_new.get(f'{y} ES Fee Paid By', '')).strip()
                                 if es_fee_by == '': es_fee_by = 'N/A' if not is_bvi_up else 'Firm'
                                 
-                                # V126 Bugfix: Ensure new_es_st is ALWAYS defined
-                                new_es_st = str(row_new.get(f'{y} ES Status', '')).strip()
-                                if new_es_st not in ["Pending", "Completed", "Exempt"]: new_es_st = "Pending"
-                                
                                 br_date_val = row_new.get(f'{y} Fee Paid Date', row_new.get(f'{y} BR Paid Date', row_new.get(f'{y} BR Date')))
                                 afr_fee_date_val = row_new.get(f'{y} AR/AFR Fee Paid Date', '')
                                 ar_date_val = row_new.get(f'{y} AR/AFR Filed Date', row_new.get(f'{y} AR Filed Date', row_new.get(f'{y} AR Date')))
@@ -3164,18 +3149,12 @@ elif choice == "📤 Data Exchange":
                                 if inc_yr and y < inc_yr:
                                     br_by, afr_fee_by, es_fee_by = 'N/A', 'N/A', 'N/A'
                                     raw_br, raw_afr_fee, raw_ar, raw_es_fee, raw_es = None, None, None, None, None
-                                    new_ar_cr = "Pending"
-                                    new_es_st = "N/A"
                                 elif inc_yr and y == inc_yr:
                                     raw_ar, raw_es = None, None
-                                    new_ar_cr = "Pending"
-                                    if not is_bvi_up: new_es_st = "N/A"
                                 
-                                # V126: Mandatory HK Data Sanitization
                                 if not is_bvi_up:
                                     afr_fee_by = 'N/A'
                                     es_fee_by = 'N/A'
-                                    new_es_st = 'N/A'
                                     raw_afr_fee = None
                                     raw_es_fee = None
                                     raw_es = None
@@ -3195,8 +3174,7 @@ elif choice == "📤 Data Exchange":
                                     "ar_cr_status": new_ar_cr,
                                     "es_fee_by": es_fee_by,
                                     "es_fee_date": raw_es_fee.strftime('%Y-%m-%d') if raw_es_fee else None,
-                                    "es_date": raw_es.strftime('%Y-%m-%d') if raw_es else None,
-                                    "es_status": new_es_st
+                                    "es_date": raw_es.strftime('%Y-%m-%d') if raw_es else None
                                 }
                             new_comp_records.append(json.dumps(comp_dict))
                             
