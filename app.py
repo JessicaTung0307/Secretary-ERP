@@ -111,8 +111,8 @@ active_years = list(range(2025, current_system_year + 5))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V213", layout="wide")
-choice = st.sidebar.radio("Navigation (V213)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V221", layout="wide")
+choice = st.sidebar.radio("Navigation (V221)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -2323,10 +2323,10 @@ elif choice == "🏢 Company Register":
     type_options = ["", "Private Company", "Public Company", "Guarantee", "Individual Business", "Non-Hong Kong Company"]
     st.markdown("⚠️ Company Type :red[(Required!)]"); co_type = st.selectbox("Type", type_options, index=(type_options.index(d['type']) if d['type'] in type_options else 0), label_visibility="collapsed")
 
-    # ==================== 📅 Dynamic Annual Obligations ====================
+# ==================== 📅 Dynamic Annual Obligations ====================
     updated_comp_json = {}
     if inc_place == "HK" or is_hk_reg or is_bvi:
-        st.write("---"); st.header("📅 Annual Obligations (2025 - Present)")
+        st.write("---"); st.header("📅 Annual Obligations")
         base = hk_idate if is_hk_reg and not is_bvi else inc_date
         comp_json_load = d.get('comp_rec_dict', {})
         incorp_year = base.year if base else None
@@ -2337,24 +2337,38 @@ elif choice == "🏢 Company Register":
             prev_afr_fee_by = 'Firm'
             prev_es_fee_by = 'Firm'
             
+            # V221: 只顯示「上年、今年、下年」三年 Tabs
+            disp_tabs = [current_system_year - 1, current_system_year, current_system_year + 1]
+            
             for y in active_years:
-                with st.expander(f"📌 Year {y} Compliance", expanded=True):
-                    y_str = str(y)
-                    y_data = comp_json_load.get(y_str, {})
+                y_str = str(y)
+                y_data = comp_json_load.get(y_str, {})
+                
+                # 計算繼承的 Paid By
+                if incorp_year and y < incorp_year:
+                    val_br_by = 'N/A'
+                    val_afr_fee_by = 'N/A'
+                    val_es_fee_by = 'N/A'
+                else:
+                    raw_br = str(y_data.get('fee_by', y_data.get('br_paid_by', ''))).strip()
+                    val_br_by = raw_br if raw_br else (prev_br_by if prev_br_by != 'N/A' else 'Firm')
                     
-                    if incorp_year and y < incorp_year:
-                        val_br_by = 'N/A'
-                        val_afr_fee_by = 'N/A'
-                        val_es_fee_by = 'N/A'
-                    else:
-                        raw_br = str(y_data.get('fee_by', y_data.get('br_paid_by', ''))).strip()
-                        val_br_by = raw_br if raw_br else (prev_br_by if prev_br_by != 'N/A' else 'Firm')
-                        
-                        raw_afr = str(y_data.get('afr_fee_by', '')).strip()
-                        val_afr_fee_by = raw_afr if raw_afr else (prev_afr_fee_by if prev_afr_fee_by != 'N/A' else 'Firm')
-                        
-                        raw_es = str(y_data.get('es_fee_by', '')).strip()
-                        val_es_fee_by = raw_es if raw_es else (prev_es_fee_by if prev_es_fee_by != 'N/A' else 'Firm')
+                    raw_afr = str(y_data.get('afr_fee_by', '')).strip()
+                    val_afr_fee_by = raw_afr if raw_afr else (prev_afr_fee_by if prev_afr_fee_by != 'N/A' else 'Firm')
+                    
+                    raw_es = str(y_data.get('es_fee_by', '')).strip()
+                    val_es_fee_by = raw_es if raw_es else (prev_es_fee_by if prev_es_fee_by != 'N/A' else 'Firm')
+                
+                # 如果年份唔喺 3年 範圍入面，靜靜地儲存舊數據落 Database，唔好出 UI
+                if y not in disp_tabs:
+                    updated_comp_json[y_str] = y_data
+                    prev_br_by = val_br_by
+                    prev_afr_fee_by = val_afr_fee_by
+                    prev_es_fee_by = val_es_fee_by
+                    continue
+                
+                # 喺範圍內，正式顯示 UI
+                with st.expander(f"📌 Year {y} Compliance (FY {y})", expanded=(y == current_system_year)):
                     
                     if incorp_year and y < incorp_year:
                         st.info(f"### ⚪ Year {y}: Not Incorporated Yet")
