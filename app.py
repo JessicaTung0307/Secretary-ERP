@@ -111,8 +111,8 @@ active_years = list(range(2025, current_system_year + 5))
 report_years = [y for y in active_years if y <= current_system_year]
 
 # --- 3. Navigation ---
-st.set_page_config(page_title="Secretary ERP - V229", layout="wide")
-choice = st.sidebar.radio("Navigation (V229)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
+st.set_page_config(page_title="Secretary ERP - V230", layout="wide")
+choice = st.sidebar.radio("Navigation (V230)", ["📊 Dashboard", "🏢 Company Register", "⚙️ Group Management", "📤 Data Exchange"])
 
 TEMPLATE_COLS = [
     "client_group", "name_en", "name_ch", "biz_name", "incorp_place", "incorp_place_others", 
@@ -156,6 +156,7 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
     sort_cols = [c for c in ['client_group', 'name_en', 'branch_code', 'incorp_place'] if c in selected_df.columns]
     selected_df = selected_df.sort_values(by=sort_cols, na_position='last')
 
+    # V230: Added Title and Total Records to Company Report PDF
     html_head = f"""
     <html>
     <head>
@@ -182,6 +183,10 @@ def generate_custom_pdf(selected_df, hide_client_group=False):
         </style>
     </head>
     <body>
+    <div style="text-align: center; margin-bottom: 25px;">
+        <h2 style="color: #1f497d; margin: 0; font-size: 22pt;">Company Profile Report</h2>
+        <div style="color: #7f8c8d; font-size: 11pt; margin-top: 5px;">Total: {len(selected_df)} record(s)</div>
+    </div>
     """
 
     cg_row_html = "" if hide_client_group else "<tr><th>Client Group</th><td>__CLIENT_GROUP__</td></tr>"
@@ -590,7 +595,8 @@ def generate_general_excel(selected_df, hide_client_group=False):
         if hide_client_group and 'Client Group' in headers: headers.remove('Client Group')
             
         ws.merge_cells(f"A1:{get_column_letter(len(headers))}1")
-        ws["A1"] = f"Company Report - Group: {g} (Generated on: {datetime.now(HKT).strftime('%Y/%m/%d %H:%M')})"
+        # V230: Added Total to Excel Output
+        ws["A1"] = f"Company Report - Group: {g} (Total: {len(df_export)} records | Generated on: {datetime.now(HKT).strftime('%Y/%m/%d %H:%M')})"
         ws["A1"].font = Font(name="Arial", size=14, bold=True, color="1F497D")
         ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[1].height = 30
@@ -686,7 +692,9 @@ def generate_beautiful_excel(df, place_title="All Places", hide_client_group=Fal
         ws.views.sheetView[0].showGridLines = True
 
         ws.merge_cells(f"A1:{get_column_letter(len(actual_headers))}1")
-        ws["A1"] = f"Outstanding Report - {place_title} (Group: {g} | Generated on: {datetime.now(HKT).strftime('%Y/%m/%d %H:%M')})"
+        group_df = df[df['Client Group'] == g] if 'Client Group' in df.columns else df
+        # V230: Added Total to Excel Output
+        ws["A1"] = f"Outstanding Report - {place_title} (Group: {g} | Total: {len(group_df)} records | Generated on: {datetime.now(HKT).strftime('%Y/%m/%d %H:%M')})"
         ws["A1"].font = Font(name="Arial", size=14, bold=True, color="1F497D")
         ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[1].height = 30
@@ -698,8 +706,6 @@ def generate_beautiful_excel(df, place_title="All Places", hide_client_group=Fal
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             cell.border = thin_border
         ws.row_dimensions[3].height = 25
-
-        group_df = df[df['Client Group'] == g] if 'Client Group' in df.columns else df
         
         current_row = 4
         for _, item in group_df.iterrows():
@@ -761,6 +767,7 @@ def generate_outstanding_pdf(df, place_title="All Places", hide_client_group=Fal
     colspan = str(len(headers))
     th_html = "".join([f"<th>{h}</th>" for h in headers])
 
+    # V230: Added Total Records to Header
     html = f"""<html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
         <style>
             @page {{ size: A4 landscape; margin: 10mm; background-color: #ffffff; 
@@ -776,7 +783,7 @@ def generate_outstanding_pdf(df, place_title="All Places", hide_client_group=Fal
             tr:nth-child(even) td {{ background-color: #f8f9fa; }}
             .text-left {{ text-align: left; font-weight: bold; color: #2980b9; padding-left: 3px; }}
             .report-header-cell {{ border: none !important; background-color: white !important; text-align: left !important; padding: 0 0 10px 0 !important; }}
-        </style></head><body><table><thead><tr><td colspan="{colspan}" class="report-header-cell"><h2 style="color: #1f497d; margin: 0 0 5px 0;">Outstanding Report - {place_title}</h2></td></tr><tr>{th_html}</tr></thead><tbody>"""
+        </style></head><body><table><thead><tr><td colspan="{colspan}" class="report-header-cell"><h2 style="color: #1f497d; margin: 0 0 5px 0;">Outstanding Report - {place_title} <span style="font-size: 11pt; color: #7f8c8d; font-weight: normal;">(Total: {len(df)} records)</span></h2></td></tr><tr>{th_html}</tr></thead><tbody>"""
     
     for _, r in df.iterrows():
         br_val = clean_status(r.get('Fee Status', ''))
@@ -864,7 +871,9 @@ def generate_inv_excel(df, year, month_disp, place_title="All Places", hide_clie
         ws.views.sheetView[0].showGridLines = True
 
         ws.merge_cells(f"A1:{get_column_letter(len(headers))}1")
-        ws["A1"] = f"Invoicing Schedule Report - {place_title} ({year} | Group: {g} | Gen: {datetime.now(HKT).strftime('%Y/%m/%d %H:%M')})"
+        group_df = df[df['Client Group'] == g] if 'Client Group' in df.columns else df
+        # V230: Added Total to Excel Output
+        ws["A1"] = f"Invoicing Schedule Report - {place_title} ({year} | Group: {g} | Total: {len(group_df)} records | Gen: {datetime.now(HKT).strftime('%Y/%m/%d %H:%M')})"
         ws["A1"].font = Font(name="Arial", size=14, bold=True, color="1F497D")
         ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[1].height = 30
@@ -878,7 +887,6 @@ def generate_inv_excel(df, year, month_disp, place_title="All Places", hide_clie
         ws.row_dimensions[3].height = 25
 
         center_cols = ["Client Group", "Incorp Place", "Year", "Anniversary (MM/DD)", "Reg No. (BR/CI)", "Fee Paid By", "Billing Item", "Fee Deadline", "AR/AFR Deadline", "ES Deadline", "Invoice Status", "Invoice No."]
-        group_df = df[df['Client Group'] == g] if 'Client Group' in df.columns else df
 
         current_row = 4
         for _, item in group_df.iterrows():
@@ -952,6 +960,7 @@ def generate_inv_pdf(df, year, month_disp, place_title="All Places", hide_client
     colspan = str(len(headers))
     th_html = "".join([f"<th>{h}</th>" for h in headers])
     
+    # V230: Added Total Records to Header
     html = f"""<html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
         <style>
             @page {{ size: A4 landscape; margin: 15mm; background-color: #ffffff; 
@@ -967,7 +976,7 @@ def generate_inv_pdf(df, year, month_disp, place_title="All Places", hide_client
             tr:nth-child(even) td {{ background-color: #f8f9fa; }}
             .text-left {{ text-align: left; font-weight: bold; color: #2980b9; }}
             .report-header-cell {{ border: none !important; background-color: white !important; text-align: left !important; padding: 0 0 10px 0 !important; }}
-        </style></head><body><table><thead><tr><td colspan="{colspan}" class="report-header-cell"><h2 style="color: #1f497d; margin: 0 0 5px 0;">Invoicing Schedule Report - {place_title} ({year})</h2></td></tr><tr>{th_html}</tr></thead><tbody>"""
+        </style></head><body><table><thead><tr><td colspan="{colspan}" class="report-header-cell"><h2 style="color: #1f497d; margin: 0 0 5px 0;">Invoicing Schedule Report - {place_title} ({year}) <span style="font-size: 11pt; color: #7f8c8d; font-weight: normal;">(Total: {len(df)} records)</span></h2></td></tr><tr>{th_html}</tr></thead><tbody>"""
     
     for _, r in df.iterrows():
         bill_raw = str(r.get('Billing Item', ''))
