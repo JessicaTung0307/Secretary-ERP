@@ -1,6 +1,8 @@
 streamlit
 pandas
 SQLAlchemy
-psycopg-binary
 WeasyPrint
 openpyxl
+psycopg2-binary
+psycopg-binary
+psycopg[binary]
